@@ -6,10 +6,38 @@ import { useFaceWS } from "./useFaceWS";
 
 export type KioskState = "sleeping" | "waking" | "active" | "idle";
 
-const IDLE_TIMEOUT = 20_000;
+// Read configuration from environment
+const getEnv = (key: string, defaultValue: any) => {
+  const value = process.env[key];
+  if (value === undefined || value === '') return defaultValue;
+  return value;
+};
+
+// Sleep mode configuration - HARDCODED OFF for now
+const SLEEP_MODE_ENABLED = false;
+const IDLE_TIMEOUT = parseInt(getEnv('NEXT_PUBLIC_KIOSK_IDLE_TIMEOUT', '20000'), 10);
+const WAKE_THRESHOLD = parseInt(getEnv('NEXT_PUBLIC_KIOSK_WAKE_THRESHOLD', '3'), 10);
+const SLEEP_ALLOWED_START_HOUR = getEnv('NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_START_HOUR', undefined);
+const SLEEP_ALLOWED_END_HOUR = getEnv('NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_END_HOUR', undefined);
 const FACE_CHECK_INTERVAL = 1500;
-const WAKE_THRESHOLD = 3; // ~4.5 seconds of face visible
+
 const NO_FACE_THRESHOLD = Math.ceil(IDLE_TIMEOUT / FACE_CHECK_INTERVAL);
+
+function isSleepAllowedByTime(): boolean {
+  if (SLEEP_ALLOWED_START_HOUR === undefined || SLEEP_ALLOWED_END_HOUR === undefined) {
+    return true; // no time restriction
+  }
+  const start = parseInt(SLEEP_ALLOWED_START_HOUR, 10);
+  const end = parseInt(SLEEP_ALLOWED_END_HOUR, 10);
+  const now = new Date();
+  const hour = now.getHours();
+  if (start <= end) {
+    return hour >= start && hour < end;
+  } else {
+    // overnight range, e.g., 22 to 6
+    return hour >= start || hour < end;
+  }
+}
 
 // Simple greeting — no auto-comments about age/expression/lookalike
 // Those are available in store for AI to answer when user asks
@@ -187,7 +215,7 @@ export function useKioskMode() {
     return () => events.forEach((e) => window.removeEventListener(e, markActive));
   }, [markActive]);
 
-  // State machine — sleep when no face, wake when face appears
+  // State machine — sleep when no face AND time window allows, wake when face appears or time ends
   useEffect(() => {
     const interval = setInterval(() => {
       const faceDetected = lastResult.current.detected;
@@ -199,16 +227,27 @@ export function useKioskMode() {
           noFaceCountRef.current += 1;
           if (noFaceCountRef.current >= NO_FACE_THRESHOLD) {
             noFaceCountRef.current = 0;
-            setState("sleeping");
-            clearMessages();
-            setMood("resting");
-            presenceCountRef.current = 0;
+            // Only sleep if enabled AND time window allows
+            if (SLEEP_MODE_ENABLED && isSleepAllowedByTime()) {
+              setState("sleeping");
+              clearMessages();
+              setMood("resting");
+              presenceCountRef.current = 0;
+            }
           }
         }
         return;
       }
 
       if (state === "sleeping") {
+        // Wake if time window expired (even without face)
+        if (SLEEP_MODE_ENABLED && !isSleepAllowedByTime()) {
+          presenceCountRef.current = 0;
+          noFaceCountRef.current = 0;
+          setState("active");
+          return;
+        }
+
         if (faceDetected) {
           presenceCountRef.current += 1;
           if (presenceCountRef.current >= WAKE_THRESHOLD) {

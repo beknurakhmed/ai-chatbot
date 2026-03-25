@@ -19,7 +19,7 @@ SILERO_CONFIG = {
 
 # edge-tts fallback for Korean
 EDGE_VOICE_MAP = {
-    "kr": {"voice": "ko-KR-SunHiNeural", "rate": "+12%", "pitch": "+45Hz"},
+    "kr": {"voice": "ko-KR-SunHiNeural", "rate": "+0%", "pitch": "+0Hz"},
 }
 
 
@@ -38,7 +38,7 @@ def get_silero_model(locale: str):
         repo_or_dir="snakers4/silero-models",
         model="silero_tts",
         language=locale if locale != "uz" else "uz",
-        speaker=config["model_id"],
+        speaker=config["speaker"],
     )
     model = model.to(device)
     _silero_models[locale] = (model, config)
@@ -110,7 +110,7 @@ async def synthesize(text: str, locale: str = "uz") -> tuple[bytes, str]:
         except Exception as e:
             print(f"Silero TTS failed for {locale}: {e}, falling back to edge-tts")
 
-    # Fallback: edge-tts for any language
+    # Fallback: edge-tts for any language (higher pitch for child-like sound)
     fallback_voices = {
         "uz": {"voice": "uz-UZ-MadinaNeural", "rate": "+15%", "pitch": "+50Hz"},
         "ru": {"voice": "ru-RU-SvetlanaNeural", "rate": "+12%", "pitch": "+45Hz"},
