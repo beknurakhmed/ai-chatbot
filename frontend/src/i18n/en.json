@@ -1,0 +1,24 @@
+{
+  "welcome": "Hi! I'm Chito — your AUT assistant!",
+  "welcomeSub": "Ask me a question or choose one of the buttons below",
+  "inputPlaceholder": "Type your question...",
+  "quickActions": {
+    "timetable": "Timetable",
+    "map": "Map",
+    "dean": "Dean's office",
+    "faq": "FAQ",
+    "contacts": "Contacts",
+    "admission": "Admission"
+  },
+  "chat": {
+    "thinking": "Chito is thinking...",
+    "error": "Sorry, an error occurred. Please try again.",
+    "greeting": "Hey, {name}! How are you?"
+  },
+  "face": {
+    "recognized": "Hey, {name}! You have {count} classes today.",
+    "unknown": "Hi! I don't know you yet. Would you like to register?",
+    "register": "Register"
+  },
+  "language": "Language"
+}

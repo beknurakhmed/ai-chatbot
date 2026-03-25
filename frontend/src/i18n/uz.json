@@ -1,0 +1,24 @@
+{
+  "welcome": "Salom! Men Chito — AUT yordamchisiman!",
+  "welcomeSub": "Menga savol bering yoki quyidagi tugmalardan birini tanlang",
+  "inputPlaceholder": "Savolingizni yozing...",
+  "quickActions": {
+    "timetable": "Dars jadvali",
+    "map": "Xarita",
+    "dean": "Dekanat",
+    "faq": "FAQ",
+    "contacts": "Kontaktlar",
+    "admission": "Qabul"
+  },
+  "chat": {
+    "thinking": "Chito o'ylayapti...",
+    "error": "Kechirasiz, xatolik yuz berdi. Qaytadan urinib ko'ring.",
+    "greeting": "Salom, {name}! Qalaysiz?"
+  },
+  "face": {
+    "recognized": "Salom, {name}! Bugun {count} ta daringiz bor.",
+    "unknown": "Salom! Men sizni hali tanimayman. Ro'yxatdan o'tmoqchimisiz?",
+    "register": "Ro'yxatdan o'tish"
+  },
+  "language": "Til"
+}

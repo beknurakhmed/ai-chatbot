@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+*.whl
+
+# Node
+node_modules/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+*.log
+
+# Data (large/generated)
+backend/app/data/celebrities/photos/
+backend/app/data/faces/
+*.insightface/
+
+# Models (downloaded at runtime)
+frontend/public/models/
+
+# PM2
+.pm2/
+
+# Misc
+*.bak
+*.tmp
