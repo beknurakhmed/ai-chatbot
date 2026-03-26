@@ -14,6 +14,7 @@ import { useAutoTts } from "@/hooks/useAutoTts";
 import { useStt } from "@/hooks/useStt";
 import { useChat } from "@/hooks/useChat";
 import { useTts } from "@/hooks/useTts";
+import { useTypewriter } from "@/hooks/useTypewriter";
 import { t } from "@/i18n";
 
 export default function KioskPage() {
@@ -160,8 +161,10 @@ export default function KioskPage() {
   // useAutoTts handles all speech automatically
 
   const lastAssistantMsg = [...messages].reverse().find((m) => m.role === "assistant");
-  const bubbleText = lastAssistantMsg?.content || t(locale, "welcome");
+  const fullBubbleText = lastAssistantMsg?.content || t(locale, "welcome");
   const showWelcome = messages.length === 0;
+  const { displayed: typedText, isTyping: isBubbleTyping } = useTypewriter(fullBubbleText, isSpeaking);
+  const bubbleText = lastAssistantMsg ? (typedText || "") : fullBubbleText;
 
   function handleReset() {
     clearMessages();
@@ -268,7 +271,7 @@ export default function KioskPage() {
           transition={{ duration: 0.5 }}
         >
           <Chito />
-          <SpeechBubble text={bubbleText} isVisible={true} />
+          <SpeechBubble text={bubbleText} isVisible={!!bubbleText} isTyping={isBubbleTyping} />
         </motion.div>
 
         {/* Real-time transcript indicator */}
@@ -297,7 +300,7 @@ export default function KioskPage() {
 
         {/* Chat messages */}
         <div className="w-full max-w-2xl flex-1 flex flex-col min-h-0 mt-2">
-          <ChatMessages />
+          <ChatMessages hideLastAssistant={isSpeaking || isBubbleTyping} />
         </div>
 
         {/* Quick actions */}

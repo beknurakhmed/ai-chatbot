@@ -84,6 +84,9 @@ interface AppState {
 
   waitingForConfirmation: boolean;
   setWaitingForConfirmation: (v: boolean) => void;
+
+  isSpeaking: boolean;
+  setIsSpeaking: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -120,4 +123,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   waitingForConfirmation: false,
   setWaitingForConfirmation: (waitingForConfirmation) => set({ waitingForConfirmation }),
+
+  isSpeaking: false,
+  setIsSpeaking: (isSpeaking) => set({ isSpeaking }),
 }));

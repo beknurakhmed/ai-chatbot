@@ -16,6 +16,8 @@ LOCALE_TO_LANG = {
     "kr": "ko",
 }
 
+SUPPORTED_LANGS = {"uz", "ru", "en", "ko"}
+
 
 def get_model() -> WhisperModel:
     global _model
@@ -48,8 +50,13 @@ def transcribe(audio_bytes: bytes, locale: str = "auto") -> dict:
 
     text = " ".join(seg.text.strip() for seg in segments)
 
+    detected = info.language
+    # If detected language is not supported, fallback to English
+    if detected not in SUPPORTED_LANGS:
+        detected = "en"
+
     return {
         "text": text,
-        "language": info.language,
+        "language": detected,
         "language_probability": round(info.language_probability, 2),
     }

@@ -82,7 +82,7 @@ export function useFaceWS(videoRef: React.RefObject<HTMLVideoElement | null>) {
           } else {
             // Still consider face "present" if seen within last 5 seconds
             // (InsightFace on CPU can be slow, avoid false negatives)
-            const recentlySeen = Date.now() - lastFaceSeenRef.current < 5000;
+            const recentlySeen = Date.now() - lastFaceSeenRef.current < 2000;
             lastResultRef.current = { ...data, detected: recentlySeen };
             if (!recentlySeen) {
               setFaceAttributes({ age: null, gender: null, expression: null, expressionScore: 0 });

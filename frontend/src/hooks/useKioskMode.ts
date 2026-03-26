@@ -7,18 +7,12 @@ import { useFaceWS } from "./useFaceWS";
 export type KioskState = "sleeping" | "waking" | "active" | "idle";
 
 // Read configuration from environment
-const getEnv = (key: string, defaultValue: any) => {
-  const value = process.env[key];
-  if (value === undefined || value === '') return defaultValue;
-  return value;
-};
-
-// Sleep mode configuration - HARDCODED OFF for now
-const SLEEP_MODE_ENABLED = false;
-const IDLE_TIMEOUT = parseInt(getEnv('NEXT_PUBLIC_KIOSK_IDLE_TIMEOUT', '20000'), 10);
-const WAKE_THRESHOLD = parseInt(getEnv('NEXT_PUBLIC_KIOSK_WAKE_THRESHOLD', '3'), 10);
-const SLEEP_ALLOWED_START_HOUR = getEnv('NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_START_HOUR', undefined);
-const SLEEP_ALLOWED_END_HOUR = getEnv('NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_END_HOUR', undefined);
+// Sleep mode configuration — use literal process.env access for Next.js inlining
+const SLEEP_MODE_ENABLED = process.env.NEXT_PUBLIC_KIOSK_SLEEP_MODE_ENABLED === 'true';
+const IDLE_TIMEOUT = parseInt(process.env.NEXT_PUBLIC_KIOSK_IDLE_TIMEOUT || '20000', 10);
+const WAKE_THRESHOLD = parseInt(process.env.NEXT_PUBLIC_KIOSK_WAKE_THRESHOLD || '3', 10);
+const SLEEP_ALLOWED_START_HOUR = process.env.NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_START_HOUR;
+const SLEEP_ALLOWED_END_HOUR = process.env.NEXT_PUBLIC_KIOSK_SLEEP_ALLOWED_END_HOUR;
 const FACE_CHECK_INTERVAL = 1500;
 
 const NO_FACE_THRESHOLD = Math.ceil(IDLE_TIMEOUT / FACE_CHECK_INTERVAL);
@@ -210,7 +204,7 @@ export function useKioskMode() {
 
   // Activity tracking
   useEffect(() => {
-    const events = ["mousedown", "touchstart", "keydown", "mousemove"];
+    const events = ["mousedown", "touchstart", "keydown"];
     events.forEach((e) => window.addEventListener(e, markActive));
     return () => events.forEach((e) => window.removeEventListener(e, markActive));
   }, [markActive]);

@@ -2,6 +2,7 @@ FROM pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 ENV DEBIAN_FRONTEND=noninteractive
+ENV LD_LIBRARY_PATH=/opt/conda/lib/python3.11/site-packages/nvidia/cudnn/lib:/opt/conda/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 libglib2.0-0 build-essential g++ \

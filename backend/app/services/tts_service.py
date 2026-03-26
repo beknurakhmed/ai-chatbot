@@ -12,14 +12,14 @@ _silero_models: dict = {}
 
 # Silero model configs per language
 SILERO_CONFIG = {
-    "ru": {"model_id": "v4_ru", "speaker": "baya", "sample_rate": 48000},
+    "ru": {"model_id": "v4_ru", "speaker": "baya", "sample_rate": 68000},
     "en": {"model_id": "v3_en", "speaker": "en_21", "sample_rate": 48000},
     "uz": {"model_id": "v4_uz", "speaker": "dilnavoz", "sample_rate": 48000},
 }
 
 # edge-tts fallback for Korean
 EDGE_VOICE_MAP = {
-    "kr": {"voice": "ko-KR-SunHiNeural", "rate": "+0%", "pitch": "+0Hz"},
+    "kr": {"voice": "ko-KR-SunHiNeural", "rate": "+20%", "pitch": "+45Hz"},
 }
 
 
