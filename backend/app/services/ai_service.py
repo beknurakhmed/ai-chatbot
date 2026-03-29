@@ -247,9 +247,9 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
     if mode == "ollama":
         result = await chat_ollama(message, locale, hist, user_name, face_attributes)
     elif mode == "local":
-        result = await chat_local(message, locale, hist, user_name)
+        result = await chat_local(message, locale, hist, user_name, face_attributes)
     elif mode == "claude":
-        result = await chat_claude(message, locale, hist, user_name)
+        result = await chat_claude(message, locale, hist, user_name, face_attributes)
     else:
         result = demo_response(message, locale)
 
@@ -271,7 +271,7 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
     return result
 
 
-async def chat_claude(message: str, locale: str, history: list[dict], user_name: str | None = None) -> dict:
+async def chat_claude(message: str, locale: str, history: list[dict], user_name: str | None = None, face_attributes: dict | None = None) -> dict:
     """Chat via Claude API."""
     anthropic = get_client()
     system_prompt = build_system_prompt(locale, user_name, face_attributes)
@@ -293,7 +293,7 @@ async def chat_claude(message: str, locale: str, history: list[dict], user_name:
     return {"reply": reply, "mood": mood}
 
 
-async def chat_local(message: str, locale: str, history: list[dict], user_name: str | None = None) -> dict:
+async def chat_local(message: str, locale: str, history: list[dict], user_name: str | None = None, face_attributes: dict | None = None) -> dict:
     """Chat via local LLM (any OpenAI-compatible server: LM Studio, text-gen-webui, vLLM, etc.)."""
     base_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:1234")
     model = os.environ.get("LOCAL_LLM_MODEL", "local-model")

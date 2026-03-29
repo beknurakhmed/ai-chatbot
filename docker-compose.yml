@@ -44,7 +44,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    entrypoint: ["ollama", "pull", "qwen2.5:7b"]
+    entrypoint: ["ollama", "pull", "qwen2.5:3b"]
     environment:
       - OLLAMA_HOST=http://ollama:11434
     restart: "no"
@@ -55,7 +55,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OLLAMA_MODEL=qwen2.5:7b-instruct
+      - OLLAMA_MODEL=qwen2.5:3b
       - OLLAMA_HOST=http://ollama:11434
       - DATABASE_URL=postgresql+asyncpg://chito:chito@postgres:5432/chito
     env_file:
@@ -88,7 +88,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:
       backend:
         condition: service_healthy
