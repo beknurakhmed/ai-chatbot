@@ -18,6 +18,7 @@ export default function ChatInput() {
     if (!text) return;
     setInput("");
     if (isSpeaking) stop();
+    useAppStore.getState().setTtsEnabled(true);
     await send(text);
   }
 

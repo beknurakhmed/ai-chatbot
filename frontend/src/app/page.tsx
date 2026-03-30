@@ -68,6 +68,16 @@ export default function KioskPage() {
         const store = useAppStore.getState();
         const textLower = text.trim().toLowerCase();
 
+        // Activate TTS when user says "hi chito" via voice
+        const GREETING_TRIGGERS = [
+          "hi chito", "hey chito", "hello chito",
+          "привет чито", "салом чито", "хей чито",
+          "salom chito", "안녕 치토",
+        ];
+        if (GREETING_TRIGGERS.some((t) => textLower.includes(t))) {
+          useAppStore.getState().setTtsEnabled(true);
+        }
+
         // STEP 2: Waiting for confirmation ("да" / "нет" / re-spell)
         if (store.waitingForConfirmation && store.pendingName) {
           addMessage({ role: "user", content: text });
@@ -169,6 +179,7 @@ export default function KioskPage() {
   function handleReset() {
     clearMessages();
     setMood("greeting");
+    useAppStore.getState().setTtsEnabled(false);
   }
 
   const isSleeping = state === "sleeping";
@@ -271,7 +282,7 @@ export default function KioskPage() {
           transition={{ duration: 0.5 }}
         >
           <Chito />
-          <SpeechBubble text={bubbleText} isVisible={!!bubbleText} isTyping={isBubbleTyping} />
+          {/* <SpeechBubble text={bubbleText} isVisible={!!bubbleText} isTyping={isBubbleTyping} /> */}
         </motion.div>
 
         {/* Real-time transcript indicator */}
@@ -300,7 +311,7 @@ export default function KioskPage() {
 
         {/* Chat messages */}
         <div className="w-full max-w-2xl flex-1 flex flex-col min-h-0 mt-2">
-          <ChatMessages hideLastAssistant={isSpeaking || isBubbleTyping} />
+          <ChatMessages hideLastAssistant={false} />
         </div>
 
         {/* Quick actions */}

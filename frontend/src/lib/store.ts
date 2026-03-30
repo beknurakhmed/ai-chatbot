@@ -87,6 +87,9 @@ interface AppState {
 
   isSpeaking: boolean;
   setIsSpeaking: (v: boolean) => void;
+
+  ttsEnabled: boolean;
+  setTtsEnabled: (v: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -126,4 +129,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   isSpeaking: false,
   setIsSpeaking: (isSpeaking) => set({ isSpeaking }),
+
+  ttsEnabled: false,
+  setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
 }));
