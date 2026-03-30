@@ -25,66 +25,86 @@ PAGES = [
 ]
 
 
+def _clean(text: str) -> str:
+    """Decode HTML entities and strip whitespace."""
+    text = re.sub(r'&ndash;', '–', text)
+    text = re.sub(r'&amp;', '&', text)
+    text = re.sub(r'&nbsp;', ' ', text)
+    text = re.sub(r'&#\d+;', '', text)
+    text = re.sub(r'&[a-z]+;', '', text)
+    return text.strip()
+
+
 def _parse_staff_page(html: str, category: str) -> list[dict]:
     """Extract staff members from HTML page."""
     members = []
 
-    # Find staff cards — they typically have image + name + position
-    # Pattern for rector/vice-rector pages
-    if category == "leadership":
-        # Find img + name blocks
-        blocks = re.findall(
-            r'<img[^>]*src="(/uploads/rectors/[^"]+)"[^>]*>.*?'
-            r'<[^>]*>([^<]+(?:Rector|Vice|Doctor|Professor)[^<]*)<',
-            html, re.DOTALL | re.IGNORECASE
-        )
-        for photo, title in blocks:
-            # Try to extract name from nearby text
-            name_match = re.search(r'(?:Prof\.\s*|Doctor\s*)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)', title)
-            members.append({
-                "name": name_match.group(1) if name_match else title.strip(),
-                "position": title.strip(),
-                "photo": f"{BASE_URL}{photo}",
-                "category": category,
-            })
+    if category in ("leadership", "deans"):
+        # Leadership/dean pages: each person block has:
+        #   <img src="/uploads/rectors/..."> (photo)
+        #   <strong><span font-size:18pt><span>NAME</span>...  (name)
+        #   <strong>...<span font-size:18pt>POSITION</span>... (position, next block)
+        photos = re.findall(r'/uploads/rectors/[^"]+', html)
 
-    # Pattern for staff/dean list pages
-    # Look for common patterns: card with image, name, position
-    img_blocks = re.findall(
-        r'<img[^>]*src="(/uploads/staff/[^"]+)"[^>]*>',
-        html
-    )
-    name_blocks = re.findall(
-        r'<(?:h[2-5]|strong|b|span)[^>]*class="[^"]*name[^"]*"[^>]*>([^<]+)<',
-        html, re.IGNORECASE
-    )
-
-    # Alternative: find all staff card divs
-    cards = re.findall(
-        r'<div[^>]*class="[^"]*staff[^"]*"[^>]*>(.*?)</div>\s*</div>',
-        html, re.DOTALL | re.IGNORECASE
-    )
-
-    if not cards:
-        # Try simpler pattern — just find all name+photo pairs
-        cards = re.findall(
-            r'<a[^>]*href="/en/staff/view\?id=\d+"[^>]*>(.*?)</a>',
+        # All 18pt spans in order — alternate name / position
+        spans_18 = re.findall(
+            r'font-size:18\.0pt[^>]*>.*?<span[^>]*>([^<]+)</span>',
             html, re.DOTALL
         )
+        spans_18 = [_clean(s) for s in spans_18 if s.strip()]
 
-    for card_html in cards:
-        photo_m = re.search(r'src="([^"]*(?:uploads/staff|uploads/rectors)[^"]*)"', card_html)
-        name_m = re.search(r'>([A-Z][a-zA-Z\s\'-]+(?:\s[A-Z][a-zA-Z\'-]+)+)<', card_html)
-        pos_m = re.search(r'(?:Professor|Instructor|Associate|Head|Dean|Director|Lecturer|Ph\.D)[^<]*', card_html)
+        # Names look like "Prof. Firstname Lastname" or "Firstname Lastname"
+        # Positions contain role keywords
+        pos_keywords = {'doctor', 'dean', 'rector', 'vice', 'professor', 'phd', 'ph.d', 'associate'}
 
-        if name_m:
-            member = {
-                "name": name_m.group(1).strip(),
-                "position": pos_m.group(0).strip() if pos_m else category,
-                "photo": f"{BASE_URL}{photo_m.group(1)}" if photo_m else "",
-                "category": category,
-            }
-            members.append(member)
+        i = 0
+        photo_idx = 0
+        while i < len(spans_18):
+            s = spans_18[i]
+            is_pos = any(kw in s.lower() for kw in pos_keywords) and not re.match(r'^Prof\.\s+[A-Z]', s)
+            if not is_pos:
+                name = s
+                position = _clean(spans_18[i + 1]) if i + 1 < len(spans_18) else ""
+                members.append({
+                    "name": name,
+                    "position": position,
+                    "photo": f"{BASE_URL}{photos[photo_idx]}" if photo_idx < len(photos) else "",
+                    "category": category,
+                })
+                photo_idx += 1
+                i += 2
+            else:
+                i += 1
+
+    else:
+        # Staff/lecturers pages: cards with class "singel-teachers"
+        # <div class="singel-teachers ...">
+        #   <img src="/uploads/staff/...">
+        #   <h6>NAME</h6>
+        #   <span>POSITION</span>
+        cards = re.findall(
+            r'<div[^>]*class="[^"]*singel-teachers[^"]*"[^>]*>(.*?)</div>\s*<!--',
+            html, re.DOTALL | re.IGNORECASE
+        )
+        if not cards:
+            cards = re.findall(
+                r'<div[^>]*class="[^"]*singel-teachers[^"]*"[^>]*>(.*?)</div>\s*</div>\s*</div>',
+                html, re.DOTALL | re.IGNORECASE
+            )
+
+        for card_html in cards:
+            photo_m = re.search(r'src="(/uploads/staff/[^"]+)"', card_html)
+            name_m = re.search(r'<h6[^>]*>([^<]+)</h6>', card_html)
+            pos_m = re.search(r'<span[^>]*>([^<]+)</span>', card_html)
+
+            if name_m:
+                name = re.split(r'\s*/\s*(?:Ph\.?D|Associate Professor)', _clean(name_m.group(1)))[0].strip()
+                members.append({
+                    "name": name,
+                    "position": _clean(pos_m.group(1)) if pos_m else category,
+                    "photo": f"{BASE_URL}{photo_m.group(1)}" if photo_m else "",
+                    "category": category,
+                })
 
     return members
 
@@ -154,7 +174,7 @@ KEY_STAFF = [
     {"name": "Min Young Hun", "position": "Dean of IT Business", "photo": "", "category": "deans"},
     {"name": "Park Sang Woo", "position": "Dean of Korean Philology & English Philology", "photo": "/staff/park_sang_woo.png", "category": "deans"},
     {"name": "Seok-Won Lee", "position": "Dean of Software", "photo": "", "category": "deans"},
-    {"name": "Andy Hwang", "position": "Dean of Electrical and Computer Engineering", "photo": "", "category": "deans"},
+    {"name": "Andy Hwang", "position": "Dean of Electrical and Computer Engineering", "photo": "/staff/hwang_myeon_eun.jpg", "category": "deans"},
     {"name": "Ji Hyo Seon", "position": "Professor, Civil Systems Engineering", "photo": "/staff/ji_hyo_seon.png", "category": "lecturers"},
     {"name": "Chang-Hwan Park", "position": "Professor, Civil Systems Engineering", "photo": "/staff/chang_hwan_park.png", "category": "lecturers"},
     {"name": "Hwang Myeon-Eun", "position": "Professor, ECE", "photo": "/staff/hwang_myeon_eun.jpg", "category": "lecturers"},
@@ -166,17 +186,58 @@ KEY_STAFF = [
 ]
 
 
+async def save_staff_to_db(staff_list: list[dict]) -> int:
+    """Save staff list to DB, replacing existing records."""
+    from sqlalchemy import delete
+    from ..database import async_session
+    from ..models.db_models import StaffMember
+
+    async with async_session() as db:
+        await db.execute(delete(StaffMember))
+        for s in staff_list:
+            member = StaffMember(
+                name=s["name"],
+                position=s.get("position", ""),
+                photo=s.get("photo", ""),
+                category=s.get("category", ""),
+            )
+            db.add(member)
+        await db.commit()
+    return len(staff_list)
+
+
+async def find_staff_from_db(query: str) -> list[dict]:
+    """Search staff from DB by name or position."""
+    from sqlalchemy import select, or_
+    from ..database import async_session
+    from ..models.db_models import StaffMember
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(StaffMember).where(
+                    StaffMember.is_active == True,
+                    or_(
+                        StaffMember.name.ilike(f"%{query}%"),
+                        StaffMember.position.ilike(f"%{query}%"),
+                    )
+                )
+            )
+            members = result.scalars().all()
+            return [{"name": m.name, "position": m.position, "photo": m.photo, "category": m.category} for m in members]
+    except Exception:
+        return []
+
+
 def find_staff(query: str) -> list[dict]:
-    """Find staff members matching a query. Uses key staff list + cached data."""
+    """Find staff members matching a query. Searches key staff list + JSON cache."""
     query_lower = query.lower()
     results = []
 
-    # Search key staff first
     for s in KEY_STAFF:
         if query_lower in s["name"].lower() or query_lower in s["position"].lower():
             results.append(s)
 
-    # Also search cached data
     data = _get_cached_data() if CACHE_FILE.exists() else {}
     for s in data.get("staff", []):
         if query_lower in s["name"].lower() or query_lower in s.get("position", "").lower():

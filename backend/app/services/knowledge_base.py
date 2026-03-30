@@ -109,7 +109,6 @@ Business & Humanities (IT Business, BA, English Phil, Korean Phil):
 
 ## Online Platforms
 - AIS (Academic Info System): ais.ajou.uz
-- Blackboard LMS: abb.ajou.uz:8443
 - Timetable: aut.edupage.org/timetable
 - Admission portal: admission.ajou.uz
 

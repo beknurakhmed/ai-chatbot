@@ -17,7 +17,7 @@ if _env_file.exists():
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from .routers import chat, timetable, tts, stt, face, face_ws
+from .routers import chat, timetable, tts, stt, face, face_ws, admin
 
 app = FastAPI(
     title="Chito — AUT Chatbot API",
@@ -42,6 +42,10 @@ from .database import init_db
 @app.on_event("startup")
 async def startup():
     await init_db()
+    from .services.seed_service import seed_if_empty
+    await seed_if_empty()
+    from .services.knowledge_db_service import refresh
+    await refresh()
 
 app.include_router(chat.router)
 app.include_router(timetable.router)
@@ -49,12 +53,7 @@ app.include_router(tts.router)
 app.include_router(stt.router)
 app.include_router(face.router)
 app.include_router(face_ws.router)
-
-
-@app.get("/")
-async def root():
-    from .services.ai_service import get_llm_mode
-    return {"status": "ok", "llm_mode": get_llm_mode(), "message": "Chito AUT Chatbot API"}
+app.include_router(admin.router)
 
 
 @app.get("/health")

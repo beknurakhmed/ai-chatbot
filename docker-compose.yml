@@ -58,6 +58,7 @@ services:
       - OLLAMA_MODEL=qwen2.5:3b
       - OLLAMA_HOST=http://ollama:11434
       - DATABASE_URL=postgresql+asyncpg://chito:chito@postgres:5432/chito
+      - ADMIN_TOKEN=chito-admin-secret
     env_file:
       - ./backend/.env
     volumes:
@@ -87,6 +88,18 @@ services:
     container_name: aut-frontend
     ports:
       - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  admin:
+    build: ./admin
+    container_name: aut-admin
+    ports:
+      - "3001:3001"
     environment:
       - NEXT_PUBLIC_API_URL=http://backend:8000
     depends_on:

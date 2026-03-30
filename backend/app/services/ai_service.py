@@ -4,7 +4,7 @@ import os
 import re
 import httpx
 from anthropic import Anthropic
-from .knowledge_base import get_knowledge
+from .knowledge_db_service import get_knowledge_text, get_keywords_by_intent
 
 client: Anthropic | None = None
 
@@ -66,10 +66,10 @@ def clean_response(text: str) -> str:
     return text
 
 
-def build_system_prompt(locale: str, user_name: str | None = None, face_attributes: dict | None = None) -> str:
+async def build_system_prompt(locale: str, user_name: str | None = None, face_attributes: dict | None = None) -> str:
     """Build system prompt with language instruction and optional user/face context."""
     lang_instruction = LOCALE_INSTRUCTIONS.get(locale, LOCALE_INSTRUCTIONS["en"])
-    knowledge = get_knowledge()
+    knowledge = await get_knowledge_text()
     prompt = SYSTEM_PROMPT_TEMPLATE.format(lang_instruction=lang_instruction, knowledge=knowledge)
     if user_name:
         prompt += f"\n\nThe user has been identified via face recognition as: {user_name}. Address them by name when appropriate."
@@ -103,17 +103,23 @@ def extract_mood(text: str) -> tuple[str, str]:
     return text.strip(), "explaining"
 
 
-TIMETABLE_KEYWORDS = [
+TIMETABLE_KEYWORDS_DEFAULT = [
     "timetable", "schedule", "расписание", "пары", "dars", "jadval",
     "시간표", "수업", "lesson", "class schedule", "when", "what class",
 ]
 
-MAP_KEYWORDS = [
+MAP_KEYWORDS_DEFAULT = [
     "map", "campus map", "where is", "location", "building", "how to get",
     "карта", "где находится", "здание", "корпус",
     "xarita", "qayerda", "bino",
     "지도", "어디", "건물",
 ]
+
+
+async def _get_keywords(intent: str, defaults: list[str]) -> list[str]:
+    """Get keywords from DB for intent, fall back to defaults if none in DB."""
+    db_kws = await get_keywords_by_intent(intent)
+    return db_kws if db_kws else defaults
 
 
 _CYRILLIC_TO_LATIN = str.maketrans(
@@ -157,14 +163,20 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
     hist = history or []
     msg_lower = message.lower()
 
+    # Load keywords from DB (with fallback to defaults)
+    map_keywords = await _get_keywords("map", MAP_KEYWORDS_DEFAULT)
+    timetable_keywords = await _get_keywords("timetable", TIMETABLE_KEYWORDS_DEFAULT)
+    free_room_kws = await _get_keywords("free_room", [
+        "free room", "empty room", "available room", "free class",
+        "empty class", "свободн", "пустой", "bo'sh xona",
+        "빈 교실", "which room is free", "vacant",
+    ])
+
     # Check if user is asking about map/location
-    is_map_query = any(kw in msg_lower for kw in MAP_KEYWORDS)
+    is_map_query = any(kw in msg_lower for kw in map_keywords)
 
     # Check if user is asking about free/empty rooms
-    FREE_ROOM_KEYWORDS = ["free room", "empty room", "available room", "free class",
-                          "empty class", "свободн", "пустой", "bo'sh xona",
-                          "빈 교실", "which room is free", "vacant"]
-    is_free_room_query = any(kw in msg_lower for kw in FREE_ROOM_KEYWORDS)
+    is_free_room_query = any(kw in msg_lower for kw in free_room_kws)
 
     if is_free_room_query:
         from .timetable_service import find_free_rooms
@@ -212,7 +224,7 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
             return {"reply": reply_text.get(locale, reply_text["en"]), "mood": "explaining"}
 
     # Check if user is asking about timetable
-    is_timetable_query = any(kw in msg_lower for kw in TIMETABLE_KEYWORDS)
+    is_timetable_query = any(kw in msg_lower for kw in timetable_keywords)
 
     if is_timetable_query:
         from .timetable_service import get_timetable, get_classes
@@ -286,7 +298,7 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
 async def chat_claude(message: str, locale: str, history: list[dict], user_name: str | None = None, face_attributes: dict | None = None) -> dict:
     """Chat via Claude API."""
     anthropic = get_client()
-    system_prompt = build_system_prompt(locale, user_name, face_attributes)
+    system_prompt = await build_system_prompt(locale, user_name, face_attributes)
 
     messages = []
     for msg in history[-10:]:  # last 10 messages for context
@@ -309,7 +321,7 @@ async def chat_local(message: str, locale: str, history: list[dict], user_name: 
     """Chat via local LLM (any OpenAI-compatible server: LM Studio, text-gen-webui, vLLM, etc.)."""
     base_url = os.environ.get("LOCAL_LLM_URL", "http://localhost:1234")
     model = os.environ.get("LOCAL_LLM_MODEL", "local-model")
-    system_prompt = build_system_prompt(locale, user_name, face_attributes)
+    system_prompt = await build_system_prompt(locale, user_name, face_attributes)
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in history[-10:]:
@@ -345,7 +357,8 @@ async def chat_ollama(message: str, locale: str, history: list[dict], user_name:
     import ollama as ollama_lib
 
     model = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
-    system_prompt = build_system_prompt(locale, user_name, face_attributes)
+    host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    system_prompt = await build_system_prompt(locale, user_name, face_attributes)
 
     messages = [{"role": "system", "content": system_prompt}]
     for msg in history[-10:]:
@@ -353,7 +366,8 @@ async def chat_ollama(message: str, locale: str, history: list[dict], user_name:
     messages.append({"role": "user", "content": message})
 
     try:
-        response = ollama_lib.chat(model=model, messages=messages)
+        ollama_client = ollama_lib.Client(host=host)
+        response = ollama_client.chat(model=model, messages=messages)
         text = response["message"]["content"]
         reply, mood = extract_mood(text)
         return {"reply": reply, "mood": mood}

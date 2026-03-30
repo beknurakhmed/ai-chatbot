@@ -43,6 +43,14 @@ else
     echo -e "  ${GREEN}[OK] Frontend image exists.${NC}"
 fi
 
+if ! docker image inspect aut-admin &> /dev/null; then
+    echo "  Admin image not found. Building..."
+    docker compose build admin
+    echo -e "  ${GREEN}[OK] Admin image built.${NC}"
+else
+    echo -e "  ${GREEN}[OK] Admin image exists.${NC}"
+fi
+
 if ! docker image inspect ollama/ollama:latest &> /dev/null; then
     echo "  Ollama image not found. Pulling (~4GB, please wait)..."
     docker pull ollama/ollama:latest
@@ -96,6 +104,7 @@ echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  All services are running!${NC}"
 echo
 echo "  Frontend:  http://localhost:3000"
+echo "  Admin:     http://localhost:3001"
 echo "  Backend:   http://localhost:8000"
 echo "  Ollama:    http://localhost:11434"
 echo -e "${GREEN}============================================${NC}"

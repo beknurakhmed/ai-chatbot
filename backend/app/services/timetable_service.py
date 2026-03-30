@@ -1,4 +1,10 @@
-"""Timetable service — parses AUT schedule from aut.edupage.org via headless browser."""
+"""Timetable service — parses AUT schedule from aut.edupage.org via headless browser.
+
+Data flow:
+  1. Fetch from edupage → save to DB (via admin /timetable/refresh)
+  2. Serve from DB (via get_timetable / get_classes)
+  3. JSON file cache is kept as secondary fallback
+"""
 
 import json
 import time
@@ -205,10 +211,113 @@ def _get_cached_data() -> dict:
     return {}
 
 
-async def get_timetable(group: str = "", date_str: str = "") -> dict:
-    """Get timetable for a specific group."""
-    data = await asyncio.to_thread(_get_cached_data)
+async def save_timetable_to_db(data: dict) -> int:
+    """Save parsed timetable data to database. Returns number of entries saved."""
+    from sqlalchemy import delete
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry
 
+    schedule = data.get("schedule", {})
+    if not schedule:
+        return 0
+
+    async with async_session() as db:
+        # Clear existing entries
+        await db.execute(delete(TimetableEntry))
+        count = 0
+        for group_name, lessons in schedule.items():
+            for lesson in lessons:
+                entry = TimetableEntry(
+                    group=group_name,
+                    day=lesson.get("day", ""),
+                    period=lesson.get("period", ""),
+                    time_str=lesson.get("time", ""),
+                    subject=lesson.get("subject", ""),
+                    teacher=lesson.get("teacher", ""),
+                    room=lesson.get("room", ""),
+                )
+                db.add(entry)
+                count += 1
+        await db.commit()
+    return count
+
+
+async def _get_timetable_from_db(group: str) -> dict | None:
+    """Try to get timetable for a group from DB."""
+    from sqlalchemy import select
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry
+
+    try:
+        async with async_session() as db:
+            # Check if DB has any entries
+            result = await db.execute(
+                select(TimetableEntry).where(
+                    TimetableEntry.is_active == True,
+                    TimetableEntry.group.ilike(f"%{group}%")
+                ).order_by(TimetableEntry.day, TimetableEntry.period)
+            )
+            entries = result.scalars().all()
+            if not entries:
+                return None
+
+            matched_group = entries[0].group
+            lessons = [
+                {
+                    "day": e.day,
+                    "period": e.period,
+                    "time": e.time_str,
+                    "subject": e.subject,
+                    "teacher": e.teacher or "",
+                    "room": e.room or "",
+                }
+                for e in entries if e.group == matched_group
+            ]
+            return {
+                "available": True,
+                "group": matched_group,
+                "lessons": lessons,
+                "count": len(lessons),
+            }
+    except Exception:
+        return None
+
+
+async def _get_classes_from_db() -> list[str]:
+    """Get all unique group names from DB."""
+    from sqlalchemy import select, distinct
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(distinct(TimetableEntry.group))
+                .where(TimetableEntry.is_active == True)
+                .order_by(TimetableEntry.group)
+            )
+            return [row[0] for row in result.fetchall()]
+    except Exception:
+        return []
+
+
+async def get_timetable(group: str = "", date_str: str = "") -> dict:
+    """Get timetable for a specific group. Reads from DB first, falls back to JSON cache."""
+    if not group:
+        classes = await get_classes()
+        return {
+            "available": True,
+            "classes": classes,
+            "message": "Specify a group name to see the schedule.",
+        }
+
+    # Try DB first
+    db_result = await _get_timetable_from_db(group)
+    if db_result:
+        return db_result
+
+    # Fallback to JSON cache
+    data = await asyncio.to_thread(_get_cached_data)
     if not data:
         return {
             "available": False,
@@ -216,14 +325,6 @@ async def get_timetable(group: str = "", date_str: str = "") -> dict:
             "url": "https://aut.edupage.org/timetable/",
         }
 
-    if not group:
-        return {
-            "available": True,
-            "classes": data.get("classes", []),
-            "message": "Specify a group name to see the schedule.",
-        }
-
-    # Find matching class (normalize Cyrillic look-alikes to Latin)
     _CYR_TO_LAT = str.maketrans(
         "АВСЕНКМОРТХУаvsенкмортху",
         "ABCEHKMOPTXYabcehkmoptxy",
@@ -253,6 +354,11 @@ async def get_timetable(group: str = "", date_str: str = "") -> dict:
 
 
 async def get_classes() -> list[str]:
+    # Try DB first
+    db_classes = await _get_classes_from_db()
+    if db_classes:
+        return db_classes
+    # Fallback to JSON cache
     data = await asyncio.to_thread(_get_cached_data)
     return data.get("classes", [])
 

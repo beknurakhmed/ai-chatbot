@@ -11,6 +11,16 @@ module.exports = {
       },
     },
     {
+      name: "aut-admin",
+      cwd: "C:/Users/Victus/Desktop/ai-chatbot/admin",
+      script: "node_modules/next/dist/bin/next",
+      args: "dev -p 3001",
+      interpreter: "node",
+      env: {
+        NEXT_PUBLIC_API_URL: "http://localhost:8000",
+      },
+    },
+    {
       name: "aut-backend",
       cwd: "C:/Users/Victus/Desktop/ai-chatbot/backend",
       script: "venv/Scripts/python.exe",

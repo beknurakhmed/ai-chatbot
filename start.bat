@@ -55,6 +55,20 @@ if %errorlevel% neq 0 (
     echo   [OK] Frontend image exists.
 )
 
+docker image inspect aut-admin >nul 2>&1
+if %errorlevel% neq 0 (
+    echo   Admin image not found. Building...
+    docker compose build admin
+    if %errorlevel% neq 0 (
+        echo [ERROR] Admin build failed.
+        pause
+        exit /b 1
+    )
+    echo   [OK] Admin image built.
+) else (
+    echo   [OK] Admin image exists.
+)
+
 docker image inspect ollama/ollama:latest >nul 2>&1
 if %errorlevel% neq 0 (
     echo   Ollama image not found. Pulling (~4GB, please wait)...
@@ -134,6 +148,7 @@ echo ============================================
 echo   All services are running!
 echo.
 echo   Frontend:  http://localhost:3000
+echo   Admin:     http://localhost:3001
 echo   Backend:   http://localhost:8000
 echo   Ollama:    http://localhost:11434
 echo ============================================
