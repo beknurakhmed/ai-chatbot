@@ -169,6 +169,7 @@ def _get_cached_data() -> dict:
         return _cache
 
     # File cache
+    stale_data = None
     if CACHE_FILE.exists():
         try:
             data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
@@ -177,6 +178,8 @@ def _get_cached_data() -> dict:
                 _cache = data
                 _cache_time = now
                 return data
+            # Cache is stale but keep as fallback
+            stale_data = data
         except Exception:
             pass
 
@@ -191,6 +194,13 @@ def _get_cached_data() -> dict:
             return data
     except Exception as e:
         print(f"Timetable fetch error: {e}")
+
+    # Use stale cache as fallback rather than returning nothing
+    if stale_data:
+        print("[Timetable] Using stale cache as fallback")
+        _cache = stale_data
+        _cache_time = now
+        return stale_data
 
     return {}
 
@@ -213,11 +223,16 @@ async def get_timetable(group: str = "", date_str: str = "") -> dict:
             "message": "Specify a group name to see the schedule.",
         }
 
-    # Find matching class
+    # Find matching class (normalize Cyrillic look-alikes to Latin)
+    _CYR_TO_LAT = str.maketrans(
+        "АВСЕНКМОРТХУаvsенкмортху",
+        "ABCEHKMOPTXYabcehkmoptxy",
+    )
     schedule = data.get("schedule", {})
     matched = None
+    group_norm = group.translate(_CYR_TO_LAT).lower()
     for cls_name, lessons in schedule.items():
-        if group.lower() in cls_name.lower():
+        if group_norm in cls_name.lower():
             matched = cls_name
             break
 

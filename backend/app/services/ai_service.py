@@ -115,9 +115,20 @@ MAP_KEYWORDS = [
 ]
 
 
+_CYRILLIC_TO_LATIN = str.maketrans(
+    "АВСЕНКМОРТХУаvsенкмортху",
+    "ABCEHKMOPTXYabcehkmoptxy",
+)
+
+
+def _normalize_latin(text: str) -> str:
+    """Replace look-alike Cyrillic chars with Latin equivalents."""
+    return text.translate(_CYRILLIC_TO_LATIN)
+
+
 def _detect_group_in_text(text: str, available_classes: list[str]) -> str | None:
     """Try to find a group name in user message."""
-    text_upper = text.upper().strip()
+    text_upper = _normalize_latin(text).upper().strip()
     for cls in available_classes:
         if cls.upper() in text_upper:
             return cls
