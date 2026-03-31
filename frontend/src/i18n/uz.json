@@ -4,11 +4,10 @@
   "inputPlaceholder": "Savolingizni yozing...",
   "quickActions": {
     "timetable": "Dars jadvali",
-    "map": "Xarita",
-    "dean": "Dekanat",
-    "faq": "FAQ",
-    "contacts": "Kontaktlar",
-    "admission": "Qabul"
+    "map": "Kampus xaritasi",
+    "news": "Yangiliklar",
+    "staff": "Xodimlar",
+    "freeRooms": "Bo'sh xonalar"
   },
   "chat": {
     "thinking": "Chito o'ylayapti...",

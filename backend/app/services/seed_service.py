@@ -6,7 +6,7 @@ Runs only if the tables are empty. Safe to call on every startup.
 import re
 from sqlalchemy import select, func
 from ..database import async_session
-from ..models.db_models import KnowledgeEntry, Keyword, StaffMember
+from ..models.db_models import KnowledgeEntry, Keyword, StaffMember, Building
 
 
 # ── Knowledge entries ────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ SEED_KEYWORDS = [
 ]
 
 
-# ── Key staff (from staff_service.py KEY_STAFF) ───────────────────────────
+# ── Staff seed data ──────────────────────────────────────────────────────
 
 SEED_STAFF = [
     {"name": "Muratov Gayrat Azatovich", "position": "Rector", "photo": "/staff/rector.png", "category": "leadership"},
@@ -174,11 +174,21 @@ SEED_STAFF = [
 ]
 
 
+SEED_BUILDINGS = [
+    {"num": 1, "name": "Entrance Gate", "description": "Main entry to campus", "color": "bg-gray-500"},
+    {"num": 2, "name": "A Block", "description": "Lesson rooms, Library", "color": "bg-blue-500"},
+    {"num": 3, "name": "B Block", "description": "Administration, Lesson rooms", "color": "bg-emerald-500"},
+    {"num": 4, "name": "C Block", "description": "Canteen, Conference Hall, Sports Hall", "color": "bg-orange-500"},
+    {"num": 5, "name": "Dormitory", "description": "Student housing", "color": "bg-purple-500"},
+    {"num": 6, "name": "Parking lot", "description": "Vehicle parking", "color": "bg-pink-500"},
+]
+
+
 # ── Main seed function ────────────────────────────────────────────────────────
 
 async def seed_if_empty() -> dict:
     """Seed DB with hardcoded data if tables are empty. Returns counts of inserted records."""
-    counts = {"knowledge": 0, "keywords": 0, "staff": 0}
+    counts = {"knowledge": 0, "keywords": 0, "staff": 0, "buildings": 0}
 
     async with async_session() as db:
         # Seed knowledge entries
@@ -202,6 +212,13 @@ async def seed_if_empty() -> dict:
             for s in SEED_STAFF:
                 db.add(StaffMember(**s))
             counts["staff"] = len(SEED_STAFF)
+
+        # Seed buildings
+        bld_count = await db.scalar(select(func.count()).select_from(Building))
+        if bld_count == 0:
+            for b in SEED_BUILDINGS:
+                db.add(Building(**b))
+            counts["buildings"] = len(SEED_BUILDINGS)
 
         await db.commit()
 

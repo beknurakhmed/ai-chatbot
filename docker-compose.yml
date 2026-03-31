@@ -3,16 +3,16 @@ services:
     image: pgvector/pgvector:pg16
     container_name: aut-postgres
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: chito
-      POSTGRES_PASSWORD: chito
-      POSTGRES_DB: chito
+      POSTGRES_USER: ${POSTGRES_USER:-chito}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chito}
+      POSTGRES_DB: ${POSTGRES_DB:-chito}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U chito"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chito}"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -21,7 +21,7 @@ services:
     image: ollama/ollama:latest
     container_name: aut-ollama
     ports:
-      - "11434:11434"
+      - "${OLLAMA_PORT:-11434}:11434"
     volumes:
       - ollama-models:/root/.ollama
     deploy:
@@ -44,7 +44,7 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
-    entrypoint: ["ollama", "pull", "qwen2.5:3b"]
+    entrypoint: ["ollama", "pull", "${OLLAMA_MODEL:-qwen2.5:3b}"]
     environment:
       - OLLAMA_HOST=http://ollama:11434
     restart: "no"
@@ -53,12 +53,12 @@ services:
     build: ./backend
     container_name: aut-backend
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     environment:
-      - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
       - OLLAMA_HOST=http://ollama:11434
-      - DATABASE_URL=postgresql+asyncpg://chito:chito@postgres:5432/chito
-      - ADMIN_TOKEN=chito-admin-secret
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chito}:${POSTGRES_PASSWORD:-chito}@postgres:5432/${POSTGRES_DB:-chito}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-chito-admin-secret}
     env_file:
       - ./backend/.env
     volumes:
@@ -87,9 +87,7 @@ services:
     build: ./frontend
     container_name: aut-frontend
     ports:
-      - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy
@@ -99,9 +97,7 @@ services:
     build: ./admin
     container_name: aut-admin
     ports:
-      - "3001:3001"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - "${ADMIN_PORT:-3001}:3001"
     depends_on:
       backend:
         condition: service_healthy

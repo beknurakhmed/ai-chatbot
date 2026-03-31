@@ -9,7 +9,7 @@ RUN npm install
 # Copy app
 COPY . .
 
-# Build
+# Build — Next.js reads NEXT_PUBLIC_* from .env.local at build time
 RUN npm run build
 
 EXPOSE 3000

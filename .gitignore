@@ -37,6 +37,7 @@ desktop.ini
 # Data (large/generated)
 backend/app/data/celebrities/photos/
 backend/app/data/faces/
+backend/app/data/*_cache.json
 *.insightface/
 
 # Models (downloaded at runtime)

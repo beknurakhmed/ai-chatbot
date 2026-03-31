@@ -4,11 +4,10 @@
   "inputPlaceholder": "질문을 입력하세요...",
   "quickActions": {
     "timetable": "시간표",
-    "map": "지도",
-    "dean": "학장실",
-    "faq": "FAQ",
-    "contacts": "연락처",
-    "admission": "입학"
+    "map": "캠퍼스 지도",
+    "news": "뉴스",
+    "staff": "교직원",
+    "freeRooms": "빈 교실"
   },
   "chat": {
     "thinking": "치토가 생각 중...",

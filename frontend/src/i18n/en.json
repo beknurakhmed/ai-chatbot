@@ -4,11 +4,10 @@
   "inputPlaceholder": "Type your question...",
   "quickActions": {
     "timetable": "Timetable",
-    "map": "Map",
-    "dean": "Dean's office",
-    "faq": "FAQ",
-    "contacts": "Contacts",
-    "admission": "Admission"
+    "map": "Campus map",
+    "news": "News",
+    "staff": "Staff",
+    "freeRooms": "Free rooms"
   },
   "chat": {
     "thinking": "Chito is thinking...",

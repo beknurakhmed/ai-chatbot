@@ -16,6 +16,7 @@ export async function sendMessage(
   mood: string;
   timetable?: { group: string; lessons: Array<{ day: string; period: string; time: string; subject: string; teacher: string; room: string }> };
   staff?: Array<{ name: string; position: string; photo: string }>;
+  news?: Array<{ title: string; url: string; date: string }>;
   map?: boolean;
 }> {
   const res = await fetch(`${API_BASE}/api/chat`, {
@@ -66,6 +67,23 @@ export async function saveFaceToBackend(
     return data.ok;
   } catch {
     return false;
+  }
+}
+
+export interface BuildingData {
+  num: number;
+  name: string;
+  desc: string;
+  color: string;
+}
+
+export async function fetchBuildings(): Promise<BuildingData[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/buildings`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
   }
 }
 

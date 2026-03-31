@@ -9,7 +9,14 @@ DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://chito:chito@localhost:5432/chito"
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=False,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 async_session = async_sessionmaker(engine, expire_on_commit=False)
 
 

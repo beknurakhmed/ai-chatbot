@@ -36,6 +36,7 @@ export function useChat() {
         mood,
         timetable: data.timetable || undefined,
         staff: data.staff || undefined,
+        news: data.news || undefined,
         map: data.map || undefined,
       });
       return data.reply;

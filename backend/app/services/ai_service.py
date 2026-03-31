@@ -3,10 +3,10 @@
 import os
 import re
 import httpx
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from .knowledge_db_service import get_knowledge_text, get_keywords_by_intent
 
-client: Anthropic | None = None
+client: AsyncAnthropic | None = None
 
 LOCALE_INSTRUCTIONS = {
     "uz": "FAQAT O'ZBEK TILIDA javob ber. Boshqa tillarni ISHLATMA.",
@@ -49,10 +49,10 @@ def get_llm_mode() -> str:
     return "ollama"
 
 
-def get_client() -> Anthropic:
+def get_client() -> AsyncAnthropic:
     global client
     if client is None:
-        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
+        client = AsyncAnthropic(api_key=os.environ.get("ANTHROPIC_API_KEY", ""))
     return client
 
 
@@ -103,23 +103,9 @@ def extract_mood(text: str) -> tuple[str, str]:
     return text.strip(), "explaining"
 
 
-TIMETABLE_KEYWORDS_DEFAULT = [
-    "timetable", "schedule", "расписание", "пары", "dars", "jadval",
-    "시간표", "수업", "lesson", "class schedule", "when", "what class",
-]
-
-MAP_KEYWORDS_DEFAULT = [
-    "map", "campus map", "where is", "location", "building", "how to get",
-    "карта", "где находится", "здание", "корпус",
-    "xarita", "qayerda", "bino",
-    "지도", "어디", "건물",
-]
-
-
-async def _get_keywords(intent: str, defaults: list[str]) -> list[str]:
-    """Get keywords from DB for intent, fall back to defaults if none in DB."""
-    db_kws = await get_keywords_by_intent(intent)
-    return db_kws if db_kws else defaults
+async def _get_keywords(intent: str) -> list[str]:
+    """Get keywords from DB for intent."""
+    return await get_keywords_by_intent(intent)
 
 
 _CYRILLIC_TO_LATIN = str.maketrans(
@@ -158,19 +144,58 @@ def _timetable_response(lessons: list[dict], group: str, locale: str) -> dict:
     }
 
 
+async def _get_latest_news(limit: int = 5) -> list[dict]:
+    """Fetch latest active news from DB."""
+    from sqlalchemy import select
+    from .knowledge_db_service import get_knowledge_text  # reuse session pattern
+    from ..database import async_session
+    from ..models.db_models import NewsItem
+
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(NewsItem)
+                .where(NewsItem.is_active == True)
+                .order_by(NewsItem.published_at.desc().nullslast(), NewsItem.id.desc())
+                .limit(limit)
+            )
+            items = result.scalars().all()
+            return [
+                {
+                    "title": n.title,
+                    "url": n.url or "",
+                    "date": n.published_at.strftime("%d.%m.%Y") if n.published_at else "",
+                }
+                for n in items
+            ]
+    except Exception:
+        return []
+
+
+def _news_response(news: list[dict], locale: str) -> dict:
+    """Return structured news response."""
+    header = {
+        "en": f"Here are the latest news ({len(news)}):",
+        "ru": f"Последние новости ({len(news)}):",
+        "uz": f"So'nggi yangiliklar ({len(news)}):",
+        "kr": f"최신 뉴스 ({len(news)}):",
+    }
+    lines = [header.get(locale, header["en"])]
+    for i, n in enumerate(news, 1):
+        date_part = f" ({n['date']})" if n["date"] else ""
+        lines.append(f"{i}. {n['title']}{date_part}")
+    return {"reply": "\n".join(lines), "mood": "explaining", "news": news}
+
+
 async def chat(message: str, locale: str = "en", history: list[dict] | None = None, user_name: str | None = None, face_attributes: dict | None = None) -> dict:
     """Main chat handler with timetable integration."""
     hist = history or []
     msg_lower = message.lower()
 
-    # Load keywords from DB (with fallback to defaults)
-    map_keywords = await _get_keywords("map", MAP_KEYWORDS_DEFAULT)
-    timetable_keywords = await _get_keywords("timetable", TIMETABLE_KEYWORDS_DEFAULT)
-    free_room_kws = await _get_keywords("free_room", [
-        "free room", "empty room", "available room", "free class",
-        "empty class", "свободн", "пустой", "bo'sh xona",
-        "빈 교실", "which room is free", "vacant",
-    ])
+    # Load keywords from DB
+    map_keywords = await _get_keywords("map")
+    timetable_keywords = await _get_keywords("timetable")
+    free_room_kws = await _get_keywords("free_room")
 
     # Check if user is asking about map/location
     is_map_query = any(kw in msg_lower for kw in map_keywords)
@@ -204,24 +229,65 @@ async def chat(message: str, locale: str = "en", history: list[dict] | None = No
 
         if result.get("available"):
             free = result["free_rooms"]
+            free_by_block = result.get("free_by_block", {})
             day_code = result["day"]
             prd = result["period"]
             t = result["time"]
 
             if len(free) > 0:
-                rooms_list = ", ".join(free[:15])
-                more = f" (+{len(free)-15} more)" if len(free) > 15 else ""
+                # Format by blocks
+                block_lines = []
+                for block, rooms in free_by_block.items():
+                    block_label = block or "Other"
+                    block_lines.append(f"{block_label}: {', '.join(rooms)}")
+                block_text = "\n".join(block_lines)
+
                 reply_text = {
-                    "en": f"On {day_code} at {t} (period {prd}), {len(free)} rooms are free:\n{rooms_list}{more}",
-                    "kr": f"{day_code} {t} ({prd}교시)에 {len(free)}개 교실이 비어있습니다:\n{rooms_list}{more}",
+                    "en": f"On {day_code} at {t} (period {prd}), {len(free)} rooms are free:\n{block_text}",
+                    "ru": f"{day_code} в {t} (пара {prd}), свободно {len(free)} аудиторий:\n{block_text}",
+                    "uz": f"{day_code} {t} ({prd}-dars), {len(free)} xona bo'sh:\n{block_text}",
+                    "kr": f"{day_code} {t} ({prd}교시)에 {len(free)}개 교실이 비어있습니다:\n{block_text}",
                 }
             else:
                 reply_text = {
                     "en": f"No free rooms on {day_code} at {t} (period {prd}). All {result['total_rooms']} rooms are busy.",
+                    "ru": f"Нет свободных аудиторий на {day_code} в {t} (пара {prd}). Все {result['total_rooms']} заняты.",
+                    "uz": f"{day_code} {t} ({prd}-dars) da bo'sh xona yo'q. Barcha {result['total_rooms']} xona band.",
                     "kr": f"{day_code} {t}에 빈 교실이 없습니다.",
                 }
 
             return {"reply": reply_text.get(locale, reply_text["en"]), "mood": "explaining"}
+
+    # Check if user is asking about staff
+    staff_keywords = await _get_keywords("staff")
+    is_staff_query = any(kw in msg_lower for kw in staff_keywords)
+
+    if is_staff_query:
+        from .staff_service import load_staff_cache, _db_staff_cache
+        if not _db_staff_cache:
+            await load_staff_cache()
+        if _db_staff_cache:
+            staff_list = _db_staff_cache[:20]
+            header = {
+                "en": f"Here are the staff members ({len(staff_list)}):",
+                "ru": f"Сотрудники университета ({len(staff_list)}):",
+                "uz": f"Universitet xodimlari ({len(staff_list)}):",
+                "kr": f"교직원 목록 ({len(staff_list)}):",
+            }
+            return {
+                "reply": header.get(locale, header["en"]),
+                "mood": "explaining",
+                "staff": [{"name": s["name"], "position": s.get("position", ""), "photo": s.get("photo", "")} for s in staff_list],
+            }
+
+    # Check if user is asking about news
+    news_keywords = await _get_keywords("news")
+    is_news_query = any(kw in msg_lower for kw in news_keywords)
+
+    if is_news_query:
+        news = await _get_latest_news(5)
+        if news:
+            return _news_response(news, locale)
 
     # Check if user is asking about timetable
     is_timetable_query = any(kw in msg_lower for kw in timetable_keywords)
@@ -305,7 +371,7 @@ async def chat_claude(message: str, locale: str, history: list[dict], user_name:
         messages.append({"role": msg["role"], "content": msg["content"]})
     messages.append({"role": "user", "content": message})
 
-    response = anthropic.messages.create(
+    response = await anthropic.messages.create(
         model="claude-sonnet-4-20250514",
         max_tokens=1024,
         system=system_prompt,
@@ -366,8 +432,8 @@ async def chat_ollama(message: str, locale: str, history: list[dict], user_name:
     messages.append({"role": "user", "content": message})
 
     try:
-        ollama_client = ollama_lib.Client(host=host)
-        response = ollama_client.chat(model=model, messages=messages)
+        ollama_client = ollama_lib.AsyncClient(host=host)
+        response = await ollama_client.chat(model=model, messages=messages)
         text = response["message"]["content"]
         reply, mood = extract_mood(text)
         return {"reply": reply, "mood": mood}
@@ -377,265 +443,13 @@ async def chat_ollama(message: str, locale: str, history: list[dict], user_name:
 
 # --- Demo mode (keyword matching without API) ---
 
-DEMO_KEYWORDS = {
-    "uz": {
-        "greeting": {
-            "keywords": ["salom", "hey", "assalom", "hayrli"],
-            "reply": "Salom! Men Chito — AUT yordamchisiman! Sizga qanday yordam bera olaman?",
-        },
-        "rector": {
-            "keywords": ["rektor", "rector"],
-            "reply": "Rektor kabineti 3-qavatda, 301-xonada joylashgan. Asosiy zinapoyadan yuqoriga chiqing va o'ngga buriling.",
-            "mood": "explaining",
-        },
-        "library": {
-            "keywords": ["kutubxona", "library", "kitob"],
-            "reply": "Kutubxona 2-qavatda joylashgan. U dushanba-juma kunlari 9:00-18:00 gacha ishlaydi.",
-            "mood": "studying",
-        },
-        "cafeteria": {
-            "keywords": ["oshxona", "ovqat", "cafeteria", "tushlik"],
-            "reply": "Oshxona 1-qavatda, asosiy kirish yonida joylashgan. Tushlik vaqti 12:00-14:00.",
-            "mood": "bottle",
-        },
-        "timetable": {
-            "keywords": ["dars", "jadval", "schedule", "raspisaniye"],
-            "reply": "Dars jadvalini aut.edupage.org/timetable sahifasida ko'rishingiz mumkin. Guruhingiz nomini ayting — men ham yordam beraman!",
-            "mood": "studying",
-        },
-        "admission": {
-            "keywords": ["qabul", "admission", "kirish", "hujjat"],
-            "reply": "Qabul bo'limi 1-qavatda, 105-xonada. Hujjatlar haqida ma'lumot olish uchun admission@aut.uz ga yozing.",
-            "mood": "explaining",
-        },
-        "wifi": {
-            "keywords": ["wifi", "internet", "parol"],
-            "reply": "AUT-WiFi tarmog'iga ulaning va talaba login/parolingizni kiriting. Muammo bo'lsa IT bo'limiga murojaat qiling.",
-            "mood": "laptop",
-        },
-        "sport": {
-            "keywords": ["sport", "futbol", "basketbol", "zalda"],
-            "reply": "Sport zali asosiy bino orqasida joylashgan. Futbol va basketbol maydonchalari ham bor!",
-            "mood": "soccer",
-        },
-        "exam": {
-            "keywords": ["imtihon", "exam", "sessiya", "test"],
-            "reply": "Imtihonlar har semestr oxirgi 2 haftada bo'lib o'tadi. Aniq sanalar uchun o'qituvchingizga murojaat qiling.",
-            "mood": "working",
-        },
-        "lab": {
-            "keywords": ["laboratoriya", "lab", "kompyuter", "computer"],
-            "reply": "Kompyuter laboratoriyalari 4-qavatda, 401-405 xonalarda. Ular 8:00-20:00 gacha ochiq.",
-            "mood": "laptop",
-        },
-        "contacts": {
-            "keywords": ["telefon", "kontakt", "aloqa", "contact", "email"],
-            "reply": "Qabul: +998 71 000 00 00\nQabul bo'limi: admission@aut.uz\nTalabalar ishlari: student@aut.uz",
-            "mood": "explaining",
-        },
-        "programs": {
-            "keywords": ["fakultet", "yo'nalish", "program", "mutaxassislik"],
-            "reply": "AUT da 4 ta yo'nalish bor: Computer Science, Business Administration, Economics va Korean Studies.",
-            "mood": "studying",
-        },
-        "parking": {
-            "keywords": ["parking", "mashina", "avto"],
-            "reply": "Avtoturargoh asosiy bino orqasida joylashgan. Talabalar uchun bepul!",
-            "mood": "explaining",
-        },
-        "student_id": {
-            "keywords": ["id", "guvohnoma", "talaba karta"],
-            "reply": "Talaba guvohnomasini 1-qavatdagi 110-xona (Talabalar ishlari bo'limi) dan olishingiz mumkin.",
-            "mood": "explaining",
-        },
-    },
-    "ru": {
-        "greeting": {
-            "keywords": ["привет", "здравствуй", "салом", "хей", "добр"],
-            "reply": "Привет! Я Чито — помощник AUT! Чем могу помочь?",
-        },
-        "rector": {
-            "keywords": ["ректор", "rector"],
-            "reply": "Кабинет ректора на 3 этаже, комната 301. Поднимитесь по главной лестнице и поверните направо.",
-            "mood": "explaining",
-        },
-        "library": {
-            "keywords": ["библиотек", "книг", "library"],
-            "reply": "Библиотека на 2 этаже. Работает пн-пт с 9:00 до 18:00.",
-            "mood": "studying",
-        },
-        "cafeteria": {
-            "keywords": ["столов", "кафе", "обед", "еда", "кушать"],
-            "reply": "Столовая на 1 этаже, рядом с главным входом. Обед с 12:00 до 14:00.",
-            "mood": "bottle",
-        },
-        "timetable": {
-            "keywords": ["расписан", "пары", "занят", "урок"],
-            "reply": "Расписание можно посмотреть на aut.edupage.org/timetable. Скажите вашу группу — я помогу найти!",
-            "mood": "studying",
-        },
-        "admission": {
-            "keywords": ["поступ", "приём", "документ", "абитур"],
-            "reply": "Приёмная комиссия на 1 этаже, каб. 105. По документам пишите на admission@aut.uz.",
-            "mood": "explaining",
-        },
-        "wifi": {
-            "keywords": ["wifi", "вай-фай", "интернет", "пароль"],
-            "reply": "Подключитесь к AUT-WiFi и используйте логин/пароль студента. Проблемы? Обратитесь в IT-отдел.",
-            "mood": "laptop",
-        },
-        "sport": {
-            "keywords": ["спорт", "футбол", "баскетбол", "зал"],
-            "reply": "Спортзал находится за главным зданием. Есть поля для футбола и баскетбола!",
-            "mood": "soccer",
-        },
-        "exam": {
-            "keywords": ["экзамен", "сессия", "тест", "зачёт"],
-            "reply": "Экзамены проходят в последние 2 недели каждого семестра. Точные даты уточняйте у преподавателя.",
-            "mood": "working",
-        },
-        "lab": {
-            "keywords": ["лаборатор", "компьютер", "комп"],
-            "reply": "Компьютерные лаборатории на 4 этаже, каб. 401-405. Открыты с 8:00 до 20:00.",
-            "mood": "laptop",
-        },
-        "contacts": {
-            "keywords": ["телефон", "контакт", "связь", "email", "почт"],
-            "reply": "Ресепшн: +998 71 000 00 00\nПриёмная: admission@aut.uz\nСтуд. отдел: student@aut.uz",
-            "mood": "explaining",
-        },
-        "programs": {
-            "keywords": ["факультет", "направлен", "программ", "специальн"],
-            "reply": "В AUT 4 направления: Computer Science, Business Administration, Economics и Korean Studies.",
-            "mood": "studying",
-        },
-        "parking": {
-            "keywords": ["парковк", "машин", "авто"],
-            "reply": "Парковка за главным зданием. Для студентов бесплатно!",
-            "mood": "explaining",
-        },
-        "student_id": {
-            "keywords": ["студенческ", "удостоверен", "карт"],
-            "reply": "Студенческое удостоверение выдаётся в каб. 110 (Отдел по работе со студентами), 1 этаж.",
-            "mood": "explaining",
-        },
-    },
-    "en": {
-        "greeting": {
-            "keywords": ["hello", "hi", "hey", "good morning", "good afternoon"],
-            "reply": "Hi! I'm Chito — your AUT assistant! How can I help you today?",
-        },
-        "rector": {
-            "keywords": ["rector", "president", "director"],
-            "reply": "The Rector's office is on the 3rd floor, Room 301. Take the main staircase and turn right.",
-            "mood": "explaining",
-        },
-        "library": {
-            "keywords": ["library", "book"],
-            "reply": "The library is on the 2nd floor. Open Mon-Fri, 9:00-18:00.",
-            "mood": "studying",
-        },
-        "cafeteria": {
-            "keywords": ["cafeteria", "food", "lunch", "eat", "canteen"],
-            "reply": "The cafeteria is on the 1st floor, next to the main entrance. Lunch hours: 12:00-14:00.",
-            "mood": "bottle",
-        },
-        "timetable": {
-            "keywords": ["timetable", "schedule", "class", "lesson"],
-            "reply": "Check the timetable at aut.edupage.org/timetable. Tell me your group — I can help!",
-            "mood": "studying",
-        },
-        "admission": {
-            "keywords": ["admission", "apply", "document", "enroll"],
-            "reply": "Admissions office is on the 1st floor, Room 105. Email: admission@aut.uz.",
-            "mood": "explaining",
-        },
-        "wifi": {
-            "keywords": ["wifi", "internet", "password", "connect"],
-            "reply": "Connect to AUT-WiFi using your student credentials. Issues? Contact the IT department.",
-            "mood": "laptop",
-        },
-        "sport": {
-            "keywords": ["sport", "football", "soccer", "basketball", "gym"],
-            "reply": "The gym is behind the main building. We have football and basketball courts!",
-            "mood": "soccer",
-        },
-        "exam": {
-            "keywords": ["exam", "test", "final", "midterm"],
-            "reply": "Exams are held during the last 2 weeks of each semester. Check with your professor for exact dates.",
-            "mood": "working",
-        },
-        "lab": {
-            "keywords": ["lab", "computer"],
-            "reply": "Computer labs are on the 4th floor, Rooms 401-405. Open 8:00-20:00.",
-            "mood": "laptop",
-        },
-        "contacts": {
-            "keywords": ["phone", "contact", "email", "call"],
-            "reply": "Reception: +998 71 000 00 00\nAdmissions: admission@aut.uz\nStudent affairs: student@aut.uz",
-            "mood": "explaining",
-        },
-        "programs": {
-            "keywords": ["program", "major", "faculty", "department"],
-            "reply": "AUT offers 4 programs: Computer Science, Business Administration, Economics, and Korean Studies.",
-            "mood": "studying",
-        },
-        "parking": {
-            "keywords": ["parking", "car"],
-            "reply": "Parking is available behind the main building. Free for students!",
-            "mood": "explaining",
-        },
-        "student_id": {
-            "keywords": ["student id", "card", "badge"],
-            "reply": "Student IDs are issued at Room 110 (Student Affairs), 1st floor.",
-            "mood": "explaining",
-        },
-    },
-    "kr": {
-        "greeting": {
-            "keywords": ["안녕", "하이", "헬로"],
-            "reply": "안녕하세요! 저는 치토 — AUT 도우미예요! 무엇을 도와드릴까요?",
-        },
-        "rector": {
-            "keywords": ["총장", "학장", "rector"],
-            "reply": "총장실은 3층 301호에 있습니다. 중앙 계단으로 올라가서 오른쪽으로 가세요.",
-            "mood": "explaining",
-        },
-        "library": {
-            "keywords": ["도서관", "책", "library"],
-            "reply": "도서관은 2층에 있습니다. 월-금 9:00-18:00 운영합니다.",
-            "mood": "studying",
-        },
-        "cafeteria": {
-            "keywords": ["식당", "밥", "점심", "cafeteria"],
-            "reply": "식당은 1층 정문 옆에 있습니다. 점심시간: 12:00-14:00.",
-            "mood": "bottle",
-        },
-        "timetable": {
-            "keywords": ["시간표", "수업", "schedule"],
-            "reply": "시간표는 aut.edupage.org/timetable에서 확인하세요. 학과를 알려주시면 도와드릴게요!",
-            "mood": "studying",
-        },
-    },
-}
-
 
 def demo_response(message: str, locale: str) -> dict:
-    """Provide demo responses using keyword matching."""
-    msg_lower = message.lower()
-    lang_data = DEMO_KEYWORDS.get(locale, DEMO_KEYWORDS["en"])
-
-    for category in lang_data.values():
-        for keyword in category["keywords"]:
-            if keyword in msg_lower:
-                mood = category.get("mood", "greeting")
-                return {"reply": category["reply"], "mood": mood}
-
+    """Fallback response when LLM is unavailable."""
     defaults = {
-        "uz": ("Kechirasiz, tushunmadim. Boshqacha so'rab ko'ring yoki quyidagi tugmalardan birini tanlang!", "thinking"),
-        "ru": ("Извините, не совсем понял. Попробуйте спросить по-другому или выберите кнопку ниже!", "thinking"),
-        "en": ("Sorry, I didn't quite understand. Try asking differently or use the buttons below!", "thinking"),
-        "kr": ("죄송합니다, 이해하지 못했어요. 다르게 질문하거나 아래 버튼을 사용해주세요!", "thinking"),
+        "uz": "Kechirasiz, hozir javob bera olmayman. Iltimos, keyinroq urinib ko'ring.",
+        "ru": "Извините, сейчас не могу ответить. Пожалуйста, попробуйте позже.",
+        "en": "Sorry, I can't respond right now. Please try again later.",
+        "kr": "죄송합니다, 지금 응답할 수 없습니다. 나중에 다시 시도해주세요.",
     }
-    reply, mood = defaults.get(locale, defaults["en"])
-    return {"reply": reply, "mood": mood}
+    return {"reply": defaults.get(locale, defaults["en"]), "mood": "sad"}

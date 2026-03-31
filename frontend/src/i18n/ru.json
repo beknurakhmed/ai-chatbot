@@ -4,11 +4,10 @@
   "inputPlaceholder": "Напишите ваш вопрос...",
   "quickActions": {
     "timetable": "Расписание",
-    "map": "Карта",
-    "dean": "Деканат",
-    "faq": "FAQ",
-    "contacts": "Контакты",
-    "admission": "Приём"
+    "map": "Карта кампуса",
+    "news": "Новости",
+    "staff": "Сотрудники",
+    "freeRooms": "Свободные аудитории"
   },
   "chat": {
     "thinking": "Чито думает...",

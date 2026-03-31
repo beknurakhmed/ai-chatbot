@@ -37,6 +37,12 @@ export interface StaffMember {
   photo: string;
 }
 
+export interface NewsItemData {
+  title: string;
+  url: string;
+  date: string;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
@@ -44,6 +50,7 @@ export interface Message {
   mood?: ChitoMood;
   timetable?: { group: string; lessons: TimetableLesson[] };
   staff?: StaffMember[];
+  news?: NewsItemData[];
   map?: boolean;
   timestamp: number;
 }

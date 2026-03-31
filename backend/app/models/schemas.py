@@ -42,11 +42,18 @@ class StaffMember(BaseModel):
     photo: str = ""
 
 
+class NewsItem(BaseModel):
+    title: str
+    url: str = ""
+    date: str = ""
+
+
 class ChatResponse(BaseModel):
     reply: str
     mood: str = "explaining"
     timetable: TimetableData | None = None
     staff: list[StaffMember] | None = None
+    news: list[NewsItem] | None = None
     map: bool = False
 
 

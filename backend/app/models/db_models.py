@@ -100,6 +100,34 @@ class StaffMember(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class Room(Base):
+    """Campus room / classroom."""
+    __tablename__ = "rooms"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False, unique=True)  # e.g. "A101", "B203"
+    block = Column(String(50), nullable=True)  # e.g. "A Block", "B Block"
+    floor = Column(Integer, nullable=True)
+    capacity = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Building(Base):
+    """Campus building / location."""
+    __tablename__ = "buildings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    num = Column(Integer, nullable=False, unique=True)
+    name = Column(String(255), nullable=False)
+    description = Column(String(500), nullable=True)
+    color = Column(String(50), default="bg-blue-500")  # Tailwind class
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class NewsItem(Base):
     """News articles parsed from ajou.uz."""
     __tablename__ = "news_items"

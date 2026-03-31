@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { t } from "@/i18n";
 import TimetableView from "./TimetableView";
 import StaffCard from "./StaffCard";
+import NewsCard from "./NewsCard";
 import CampusMap from "./CampusMap";
 
 interface ChatMessagesProps {
@@ -66,6 +67,10 @@ export default function ChatMessages({ hideLastAssistant }: ChatMessagesProps) {
               {/* Staff cards */}
               {msg.staff && msg.staff.length > 0 && (
                 <StaffCard staff={msg.staff} />
+              )}
+              {/* News cards with QR codes */}
+              {msg.news && msg.news.length > 0 && (
+                <NewsCard news={msg.news} />
               )}
               {/* Timetable table */}
               {msg.timetable && (

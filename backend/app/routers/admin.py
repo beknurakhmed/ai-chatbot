@@ -5,11 +5,11 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from pydantic import BaseModel
 
 from ..database import get_db
-from ..models.db_models import KnowledgeEntry, Keyword, NewsItem, InteractionLog, StaffMember, TimetableEntry
+from ..models.db_models import KnowledgeEntry, Keyword, NewsItem, InteractionLog, StaffMember, TimetableEntry, Building, Room
 from ..services.news_service import fetch_news_async
 from ..services.staff_service import _fetch_staff_data
 import asyncio
@@ -211,15 +211,23 @@ async def delete_news(news_id: int, db: AsyncSession = Depends(get_db)):
 async def refresh_news(db: AsyncSession = Depends(get_db)):
     """Fetch latest news from ajou.uz and save new items to DB."""
     fetched = await fetch_news_async(limit=30)
+
+    # Batch query: fetch all existing external_ids in one SELECT instead of N
+    fetched_ext_ids = [item.get("external_id") for item in fetched if item.get("external_id")]
+    existing_ext_ids: set[int] = set()
+    if fetched_ext_ids:
+        result = await db.execute(
+            select(NewsItem.external_id).where(NewsItem.external_id.in_(fetched_ext_ids))
+        )
+        existing_ext_ids = {row[0] for row in result.fetchall()}
+
     added = 0
     for item in fetched:
         ext_id = item.get("external_id")
-        if ext_id:
-            existing = await db.execute(select(NewsItem).where(NewsItem.external_id == ext_id))
-            if existing.scalar_one_or_none():
-                continue
+        if ext_id and ext_id in existing_ext_ids:
+            continue
         news = NewsItem(
-            external_id=item.get("external_id"),
+            external_id=ext_id,
             title=item["title"],
             content=item.get("content", ""),
             url=item.get("url"),
@@ -290,18 +298,11 @@ async def delete_staff(staff_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/staff/refresh")
 async def refresh_staff():
-    """Re-parse staff data from ajou.uz, save to DB and update cache file."""
-    import json
-    from pathlib import Path
+    """Re-parse staff data from ajou.uz and save to DB."""
     from ..services.staff_service import save_staff_to_db
     data = await asyncio.to_thread(_fetch_staff_data)
     staff_list = data.get("staff", [])
-    # Save to DB
     saved = await save_staff_to_db(staff_list)
-    # Also update JSON cache as backup
-    cache_file = Path(__file__).parent.parent / "data" / "staff_cache.json"
-    cache_file.parent.mkdir(parents=True, exist_ok=True)
-    cache_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"count": saved, "updated": data.get("updated")}
 
 
@@ -365,19 +366,204 @@ async def delete_timetable(entry_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/timetable/refresh")
 async def refresh_timetable():
-    """Re-parse timetable from aut.edupage.org, save to DB and update cache."""
-    import json
-    from ..services.timetable_service import _fetch_timetable_data, CACHE_FILE, save_timetable_to_db
+    """Re-parse timetable from aut.edupage.org and save to DB."""
+    from ..services.timetable_service import _fetch_timetable_data, save_timetable_to_db
     data = await asyncio.to_thread(_fetch_timetable_data)
     if not data:
         raise HTTPException(500, "Failed to fetch timetable data")
-    # Save to DB
     saved = await save_timetable_to_db(data)
-    # Also update JSON cache as backup
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     classes = len(data.get("schedule", {}))
     return {"classes": classes, "entries_saved": saved, "updated": data.get("updated")}
+
+
+# ── Buildings CRUD ───────────────────────────────────────────────────────────
+
+class BuildingIn(BaseModel):
+    num: int
+    name: str
+    description: str | None = None
+    color: str = "bg-blue-500"
+    is_active: bool = True
+
+class BuildingOut(BuildingIn):
+    id: int
+    class Config:
+        from_attributes = True
+
+
+@router.get("/buildings", response_model=list[BuildingOut])
+async def list_buildings(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Building).order_by(Building.num))
+    return result.scalars().all()
+
+
+@router.post("/buildings", response_model=BuildingOut, status_code=201)
+async def create_building(data: BuildingIn, db: AsyncSession = Depends(get_db)):
+    building = Building(**data.model_dump())
+    db.add(building)
+    await db.commit()
+    await db.refresh(building)
+    return building
+
+
+@router.put("/buildings/{building_id}", response_model=BuildingOut)
+async def update_building(building_id: int, data: BuildingIn, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Building).where(Building.id == building_id))
+    building = result.scalar_one_or_none()
+    if not building:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump().items():
+        setattr(building, k, v)
+    building.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(building)
+    return building
+
+
+@router.delete("/buildings/{building_id}", status_code=204)
+async def delete_building(building_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Building).where(Building.id == building_id))
+    building = result.scalar_one_or_none()
+    if not building:
+        raise HTTPException(404, "Not found")
+    await db.delete(building)
+    await db.commit()
+
+
+# ── Rooms CRUD ────────────────────────────────────────────────────────────────
+
+class RoomIn(BaseModel):
+    name: str
+    block: str | None = None
+    floor: int | None = None
+    capacity: int | None = None
+    is_active: bool = True
+
+class RoomOut(RoomIn):
+    id: int
+    class Config:
+        from_attributes = True
+
+
+@router.get("/rooms", response_model=list[RoomOut])
+async def list_rooms(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Room).order_by(Room.block, Room.name))
+    return result.scalars().all()
+
+
+@router.post("/rooms", response_model=RoomOut, status_code=201)
+async def create_room(data: RoomIn, db: AsyncSession = Depends(get_db)):
+    room = Room(**data.model_dump())
+    db.add(room)
+    await db.commit()
+    await db.refresh(room)
+    return room
+
+
+@router.put("/rooms/{room_id}", response_model=RoomOut)
+async def update_room(room_id: int, data: RoomIn, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Room).where(Room.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(404, "Not found")
+    for k, v in data.model_dump().items():
+        setattr(room, k, v)
+    room.updated_at = datetime.utcnow()
+    await db.commit()
+    await db.refresh(room)
+    return room
+
+
+@router.delete("/rooms/{room_id}", status_code=204)
+async def delete_room(room_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Room).where(Room.id == room_id))
+    room = result.scalar_one_or_none()
+    if not room:
+        raise HTTPException(404, "Not found")
+    await db.delete(room)
+    await db.commit()
+
+
+@router.post("/rooms/sync")
+async def sync_rooms_from_timetable(db: AsyncSession = Depends(get_db)):
+    """Extract unique rooms from timetable entries and create Room records for any missing ones."""
+    import re as _re
+
+    # Get all unique room names from timetable
+    tt_result = await db.execute(
+        select(TimetableEntry.room).where(
+            TimetableEntry.is_active == True,
+            TimetableEntry.room != None,
+            TimetableEntry.room != "",
+        ).distinct()
+    )
+    tt_rooms = [row[0] for row in tt_result.fetchall()]
+
+    # Get existing room names
+    existing_result = await db.execute(select(Room.name))
+    existing_names = {row[0] for row in existing_result.fetchall()}
+
+    added = 0
+    for room_name in tt_rooms:
+        if room_name in existing_names:
+            continue
+
+        block = None
+        floor = None
+
+        # Patterns: "A-103", "A103", "A 103", "B-204", "C2-01", "C-2-01"
+        # Block = letter prefix, Floor = first digit of number part
+        m = _re.match(r'^([A-Za-z]+)[\s\-]*(\d)[\s\-]*(\d+)', room_name)
+        if m:
+            block = f"{m.group(1).upper()} Block"
+            floor = int(m.group(2))
+        else:
+            # Try: "103A", "204B" — number first, letter suffix
+            m2 = _re.match(r'^(\d)(\d{2,})[\s\-]*([A-Za-z]+)', room_name)
+            if m2:
+                floor = int(m2.group(1))
+                block = f"{m2.group(3).upper()} Block"
+            else:
+                # Try just a number like "103" — floor from first digit
+                m3 = _re.match(r'^(\d)(\d{2,})$', room_name.strip())
+                if m3:
+                    floor = int(m3.group(1))
+                else:
+                    # Named rooms with block prefix: "C-conf", "C-sport hall", "A-lab"
+                    m4 = _re.match(r'^([A-Za-z])[\s\-]+(.+)', room_name)
+                    if m4:
+                        block = f"{m4.group(1).upper()} Block"
+
+        db.add(Room(name=room_name, block=block, floor=floor))
+        added += 1
+
+    await db.commit()
+    return {"synced": added, "total_timetable_rooms": len(tt_rooms), "existing": len(existing_names)}
+
+
+# ── Stats ────────────────────────────────────────────────────────────────────
+
+@router.get("/stats")
+async def get_stats(db: AsyncSession = Depends(get_db)):
+    """Return row counts for all tables and the current LLM mode."""
+    from ..services.ai_service import get_llm_mode
+
+    tables = {
+        "knowledge": KnowledgeEntry,
+        "keywords": Keyword,
+        "news": NewsItem,
+        "staff": StaffMember,
+        "timetable": TimetableEntry,
+        "buildings": Building,
+        "rooms": Room,
+        "logs": InteractionLog,
+    }
+    counts = {}
+    for name, model in tables.items():
+        result = await db.execute(select(func.count()).select_from(model))
+        counts[name] = result.scalar()
+
+    return {"counts": counts, "llm_mode": get_llm_mode()}
 
 
 # ── Logs ─────────────────────────────────────────────────────────────────────

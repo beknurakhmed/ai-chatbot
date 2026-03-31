@@ -144,7 +144,7 @@ export default function Chito() {
   const showOverlays = sprite === "/chito/chito_idle.png";
 
   return (
-    <div className="relative flex items-center justify-center w-48 h-48 md:w-64 md:h-64 lg:w-80 lg:h-80">
+    <div className="relative flex items-center justify-center w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-80 lg:h-80">
       <motion.div
         animate={{ y: [0, -6, 0] }}
         transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}

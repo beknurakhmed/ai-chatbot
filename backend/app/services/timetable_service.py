@@ -3,20 +3,10 @@
 Data flow:
   1. Fetch from edupage → save to DB (via admin /timetable/refresh)
   2. Serve from DB (via get_timetable / get_classes)
-  3. JSON file cache is kept as secondary fallback
 """
 
-import json
 import time
-import asyncio
-from pathlib import Path
 from datetime import datetime
-
-CACHE_FILE = Path(__file__).parent.parent / "data" / "timetable_cache.json"
-CACHE_MAX_AGE = 7 * 86400  # 7 days — refreshes weekly
-
-_cache = None
-_cache_time = 0
 
 
 def _fetch_timetable_data() -> dict:
@@ -164,53 +154,6 @@ def _fetch_timetable_data() -> dict:
     return result
 
 
-def _get_cached_data() -> dict:
-    """Get timetable data, using cache if fresh enough."""
-    global _cache, _cache_time
-
-    now = time.time()
-
-    # Memory cache
-    if _cache and (now - _cache_time) < CACHE_MAX_AGE:
-        return _cache
-
-    # File cache
-    stale_data = None
-    if CACHE_FILE.exists():
-        try:
-            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-            file_age = now - CACHE_FILE.stat().st_mtime
-            if file_age < CACHE_MAX_AGE:
-                _cache = data
-                _cache_time = now
-                return data
-            # Cache is stale but keep as fallback
-            stale_data = data
-        except Exception:
-            pass
-
-    # Fetch fresh data
-    try:
-        data = _fetch_timetable_data()
-        if data:
-            CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-            CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-            _cache = data
-            _cache_time = now
-            return data
-    except Exception as e:
-        print(f"Timetable fetch error: {e}")
-
-    # Use stale cache as fallback rather than returning nothing
-    if stale_data:
-        print("[Timetable] Using stale cache as fallback")
-        _cache = stale_data
-        _cache_time = now
-        return stale_data
-
-    return {}
-
-
 async def save_timetable_to_db(data: dict) -> int:
     """Save parsed timetable data to database. Returns number of entries saved."""
     from sqlalchemy import delete
@@ -302,7 +245,7 @@ async def _get_classes_from_db() -> list[str]:
 
 
 async def get_timetable(group: str = "", date_str: str = "") -> dict:
-    """Get timetable for a specific group. Reads from DB first, falls back to JSON cache."""
+    """Get timetable for a specific group from DB only."""
     if not group:
         classes = await get_classes()
         return {
@@ -311,66 +254,49 @@ async def get_timetable(group: str = "", date_str: str = "") -> dict:
             "message": "Specify a group name to see the schedule.",
         }
 
-    # Try DB first
     db_result = await _get_timetable_from_db(group)
     if db_result:
         return db_result
 
-    # Fallback to JSON cache
-    data = await asyncio.to_thread(_get_cached_data)
-    if not data:
-        return {
-            "available": False,
-            "message": "Could not load timetable. Visit aut.edupage.org/timetable",
-            "url": "https://aut.edupage.org/timetable/",
-        }
-
-    _CYR_TO_LAT = str.maketrans(
-        "АВСЕНКМОРТХУаvsенкмортху",
-        "ABCEHKMOPTXYabcehkmoptxy",
-    )
-    schedule = data.get("schedule", {})
-    matched = None
-    group_norm = group.translate(_CYR_TO_LAT).lower()
-    for cls_name, lessons in schedule.items():
-        if group_norm in cls_name.lower():
-            matched = cls_name
-            break
-
-    if not matched:
-        return {
-            "available": True,
-            "classes": data.get("classes", []),
-            "message": f"Group '{group}' not found. Available groups listed.",
-        }
-
     return {
-        "available": True,
-        "group": matched,
-        "lessons": schedule[matched],
-        "count": len(schedule[matched]),
-        "periods": data.get("periods", []),
+        "available": False,
+        "message": "Could not load timetable. Visit aut.edupage.org/timetable",
+        "url": "https://aut.edupage.org/timetable/",
     }
 
 
 async def get_classes() -> list[str]:
-    # Try DB first
-    db_classes = await _get_classes_from_db()
-    if db_classes:
-        return db_classes
-    # Fallback to JSON cache
-    data = await asyncio.to_thread(_get_cached_data)
-    return data.get("classes", [])
+    return await _get_classes_from_db()
 
 
 async def get_teachers() -> list[str]:
-    data = await asyncio.to_thread(_get_cached_data)
-    return data.get("teachers", [])
+    from sqlalchemy import select, distinct
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(distinct(TimetableEntry.teacher))
+                .where(TimetableEntry.is_active == True, TimetableEntry.teacher != None, TimetableEntry.teacher != "")
+            )
+            return [row[0] for row in result.fetchall()]
+    except Exception:
+        return []
 
 
 async def get_subjects() -> list[str]:
-    data = await asyncio.to_thread(_get_cached_data)
-    return data.get("subjects", [])
+    from sqlalchemy import select, distinct
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(distinct(TimetableEntry.subject))
+                .where(TimetableEntry.is_active == True)
+            )
+            return [row[0] for row in result.fetchall()]
+    except Exception:
+        return []
 
 
 # Day name to code mapping
@@ -414,22 +340,15 @@ def _time_to_period(time_str: str) -> str | None:
 
 
 async def find_free_rooms(day: str = "", time_str: str = "", period: str = "") -> dict:
-    """Find classrooms that are free at a given day+time.
-
-    Args:
-        day: Day name (Monday, Mon, Mo, etc.) — defaults to today
-        time_str: Time like "12:00" — used to find the period
-        period: Period letter (A-G) — overrides time_str
-    """
-    data = await asyncio.to_thread(_get_cached_data)
-    if not data:
-        return {"available": False, "message": "Timetable data not loaded."}
+    """Find classrooms that are free at a given day+time using Room + TimetableEntry tables."""
+    from sqlalchemy import select
+    from ..database import async_session
+    from ..models.db_models import TimetableEntry, Room
 
     # Resolve day
     if day:
         day_code = DAY_NAMES_TO_CODE.get(day.lower().strip(), day.strip()[:2].capitalize())
     else:
-        import calendar
         today = datetime.now().weekday()  # 0=Mon
         codes = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
         day_code = codes[today] if today < 5 else "Mo"
@@ -438,42 +357,71 @@ async def find_free_rooms(day: str = "", time_str: str = "", period: str = "") -
     if not period and time_str:
         period = _time_to_period(time_str) or "C"
     elif not period:
-        # Default: current time
         now = datetime.now()
         period = _time_to_period(f"{now.hour}:{now.minute:02d}") or "C"
 
-    # Get all rooms and check occupancy
-    all_rooms = data.get("classrooms", [])
-    room_occ = data.get("room_occupancy", {})
-    key = f"{day_code}_{period}"
+    try:
+        async with async_session() as db:
+            # Get all rooms from Room table
+            rooms_result = await db.execute(
+                select(Room).where(Room.is_active == True).order_by(Room.block, Room.name)
+            )
+            all_room_records = rooms_result.scalars().all()
 
-    free_rooms = []
-    busy_rooms = []
+            if not all_room_records:
+                return {"available": False, "message": "No rooms in database. Sync rooms from timetable first."}
 
-    for room in sorted(all_rooms):
-        if not room:
-            continue
-        occ = room_occ.get(room, {}).get(key)
-        if occ:
-            busy_rooms.append({
-                "room": room,
-                "class": occ["class"],
-                "subject": occ["subject"],
-                "teacher": occ["teacher"],
-            })
-        else:
-            free_rooms.append(room)
+            # Build room info map
+            room_info = {r.name: {"block": r.block or "", "floor": r.floor} for r in all_room_records}
+            all_room_names = [r.name for r in all_room_records]
 
-    period_time = PERIOD_TIMES.get(period, ("?", "?"))
+            # Get busy rooms for this day+period
+            busy_result = await db.execute(
+                select(TimetableEntry)
+                .where(
+                    TimetableEntry.is_active == True,
+                    TimetableEntry.day == day_code,
+                    TimetableEntry.period == period,
+                )
+            )
+            busy_entries = busy_result.scalars().all()
 
-    return {
-        "available": True,
-        "day": day_code,
-        "period": period,
-        "time": f"{period_time[0]}-{period_time[1]}",
-        "free_rooms": free_rooms,
-        "free_count": len(free_rooms),
-        "busy_rooms": busy_rooms,
-        "busy_count": len(busy_rooms),
-        "total_rooms": len(all_rooms),
-    }
+            busy_rooms_set = set()
+            busy_rooms = []
+            for e in busy_entries:
+                if e.room and e.room not in busy_rooms_set:
+                    busy_rooms_set.add(e.room)
+                    info = room_info.get(e.room, {})
+                    busy_rooms.append({
+                        "room": e.room,
+                        "block": info.get("block", ""),
+                        "class": e.group,
+                        "subject": e.subject,
+                        "teacher": e.teacher or "",
+                    })
+
+            # Group free rooms by block
+            free_rooms = []
+            free_by_block = {}
+            for name in all_room_names:
+                if name not in busy_rooms_set:
+                    free_rooms.append(name)
+                    block = room_info[name].get("block", "Other")
+                    free_by_block.setdefault(block, []).append(name)
+
+        period_time = PERIOD_TIMES.get(period, ("?", "?"))
+
+        return {
+            "available": True,
+            "day": day_code,
+            "period": period,
+            "time": f"{period_time[0]}-{period_time[1]}",
+            "free_rooms": free_rooms,
+            "free_by_block": free_by_block,
+            "free_count": len(free_rooms),
+            "busy_rooms": busy_rooms,
+            "busy_count": len(busy_rooms),
+            "total_rooms": len(all_room_names),
+        }
+    except Exception:
+        return {"available": False, "message": "No rooms in database."}

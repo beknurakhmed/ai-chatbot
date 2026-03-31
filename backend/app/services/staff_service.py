@@ -1,17 +1,12 @@
 """Staff service — parses staff data from ajou.uz and serves it."""
 
-import json
 import time
 import re
-import asyncio
 from pathlib import Path
 import httpx
 
-CACHE_FILE = Path(__file__).parent.parent / "data" / "staff_cache.json"
-CACHE_MAX_AGE = 7 * 86400  # 7 days
-
-_cache = None
-_cache_time = 0
+# In-memory cache of staff from DB
+_db_staff_cache: list[dict] = []
 
 BASE_URL = "https://ajou.uz"
 
@@ -40,21 +35,12 @@ def _parse_staff_page(html: str, category: str) -> list[dict]:
     members = []
 
     if category in ("leadership", "deans"):
-        # Leadership/dean pages: each person block has:
-        #   <img src="/uploads/rectors/..."> (photo)
-        #   <strong><span font-size:18pt><span>NAME</span>...  (name)
-        #   <strong>...<span font-size:18pt>POSITION</span>... (position, next block)
         photos = re.findall(r'/uploads/rectors/[^"]+', html)
-
-        # All 18pt spans in order — alternate name / position
         spans_18 = re.findall(
             r'font-size:18\.0pt[^>]*>.*?<span[^>]*>([^<]+)</span>',
             html, re.DOTALL
         )
         spans_18 = [_clean(s) for s in spans_18 if s.strip()]
-
-        # Names look like "Prof. Firstname Lastname" or "Firstname Lastname"
-        # Positions contain role keywords
         pos_keywords = {'doctor', 'dean', 'rector', 'vice', 'professor', 'phd', 'ph.d', 'associate'}
 
         i = 0
@@ -77,11 +63,6 @@ def _parse_staff_page(html: str, category: str) -> list[dict]:
                 i += 1
 
     else:
-        # Staff/lecturers pages: cards with class "singel-teachers"
-        # <div class="singel-teachers ...">
-        #   <img src="/uploads/staff/...">
-        #   <h6>NAME</h6>
-        #   <span>POSITION</span>
         cards = re.findall(
             r'<div[^>]*class="[^"]*singel-teachers[^"]*"[^>]*>(.*?)</div>\s*<!--',
             html, re.DOTALL | re.IGNORECASE
@@ -137,53 +118,25 @@ def _fetch_staff_data() -> dict:
     }
 
 
-def _get_cached_data() -> dict:
-    global _cache, _cache_time
-    now = time.time()
+async def load_staff_cache() -> None:
+    """Load staff from DB into in-memory cache. Call on startup."""
+    global _db_staff_cache
+    from sqlalchemy import select
+    from ..database import async_session
+    from ..models.db_models import StaffMember
 
-    if _cache and (now - _cache_time) < CACHE_MAX_AGE:
-        return _cache
-
-    if CACHE_FILE.exists():
-        try:
-            data = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-            if (now - CACHE_FILE.stat().st_mtime) < CACHE_MAX_AGE:
-                _cache = data
-                _cache_time = now
-                return data
-        except Exception:
-            pass
-
-    data = _fetch_staff_data()
-    if data.get("staff"):
-        CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        CACHE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        _cache = data
-        _cache_time = now
-
-    return data
-
-
-# Hardcoded key staff with confirmed photos (fallback if parsing fails)
-KEY_STAFF = [
-    {"name": "Muratov Gayrat Azatovich", "position": "Rector", "photo": "/staff/rector.png", "category": "leadership"},
-    {"name": "Byung Kwan Kim", "position": "First Vice-Rector, Dean of Business Administration", "photo": "/staff/byung_kwan_kim.png", "category": "leadership"},
-    {"name": "Kuchkarov Bokhodir Makhkamovich", "position": "Vice-Rector", "photo": "/staff/kuchkarov.png", "category": "leadership"},
-    {"name": "Oh Seok Kyu", "position": "Dean of Architecture & Interior Design", "photo": "", "category": "deans"},
-    {"name": "Yung Seok Shin", "position": "Dean of Civil Systems Engineering", "photo": "", "category": "deans"},
-    {"name": "Min Young Hun", "position": "Dean of IT Business", "photo": "", "category": "deans"},
-    {"name": "Park Sang Woo", "position": "Dean of Korean Philology & English Philology", "photo": "/staff/park_sang_woo.png", "category": "deans"},
-    {"name": "Seok-Won Lee", "position": "Dean of Software", "photo": "", "category": "deans"},
-    {"name": "Andy Hwang", "position": "Dean of Electrical and Computer Engineering", "photo": "/staff/hwang_myeon_eun.jpg", "category": "deans"},
-    {"name": "Ji Hyo Seon", "position": "Professor, Civil Systems Engineering", "photo": "/staff/ji_hyo_seon.png", "category": "lecturers"},
-    {"name": "Chang-Hwan Park", "position": "Professor, Civil Systems Engineering", "photo": "/staff/chang_hwan_park.png", "category": "lecturers"},
-    {"name": "Hwang Myeon-Eun", "position": "Professor, ECE", "photo": "/staff/hwang_myeon_eun.jpg", "category": "lecturers"},
-    {"name": "Kim Yoon Kee", "position": "Professor, ECE", "photo": "/staff/kim_yoon_kee.png", "category": "lecturers"},
-    {"name": "Albert Daehyun Park", "position": "Professor, IT Business", "photo": "/staff/albert_park.png", "category": "lecturers"},
-    {"name": "Kim Sook", "position": "Professor, Korean Philology", "photo": "/staff/kim_sook.png", "category": "lecturers"},
-    {"name": "Shokirov Bakhodir", "position": "English Instructor", "photo": "/staff/shokirov.png", "category": "lecturers"},
-    {"name": "Pardayeva Zulaykho", "position": "Associate Professor, English", "photo": "/staff/pardayeva.png", "category": "lecturers"},
-]
+    try:
+        async with async_session() as db:
+            result = await db.execute(
+                select(StaffMember).where(StaffMember.is_active == True)
+            )
+            members = result.scalars().all()
+            _db_staff_cache = [
+                {"name": m.name, "position": m.position, "photo": m.photo, "category": m.category}
+                for m in members
+            ]
+    except Exception:
+        _db_staff_cache = []
 
 
 async def save_staff_to_db(staff_list: list[dict]) -> int:
@@ -203,6 +156,8 @@ async def save_staff_to_db(staff_list: list[dict]) -> int:
             )
             db.add(member)
         await db.commit()
+    # Refresh in-memory cache
+    await load_staff_cache()
     return len(staff_list)
 
 
@@ -230,16 +185,11 @@ async def find_staff_from_db(query: str) -> list[dict]:
 
 
 def find_staff(query: str) -> list[dict]:
-    """Find staff members matching a query. Searches key staff list + JSON cache."""
+    """Find staff members matching a query. Searches DB staff only."""
     query_lower = query.lower()
     results = []
 
-    for s in KEY_STAFF:
-        if query_lower in s["name"].lower() or query_lower in s["position"].lower():
-            results.append(s)
-
-    data = _get_cached_data() if CACHE_FILE.exists() else {}
-    for s in data.get("staff", []):
+    for s in _db_staff_cache:
         if query_lower in s["name"].lower() or query_lower in s.get("position", "").lower():
             if not any(r["name"] == s["name"] for r in results):
                 results.append(s)
@@ -248,9 +198,14 @@ def find_staff(query: str) -> list[dict]:
 
 
 def find_staff_by_keywords(message: str) -> list[dict]:
-    """Find staff mentioned in a message."""
+    """Find staff mentioned in a message using DB data."""
     msg_lower = message.lower()
     results = []
+
+    staff_list = _db_staff_cache
+
+    if not staff_list:
+        return []
 
     # Check for role keywords
     role_keywords = {
@@ -261,13 +216,13 @@ def find_staff_by_keywords(message: str) -> list[dict]:
 
     for role, keywords in role_keywords.items():
         if any(kw in msg_lower for kw in keywords):
-            for s in KEY_STAFF:
-                if role in s["position"].lower() or role in s["category"]:
+            for s in staff_list:
+                if role in s.get("position", "").lower() or role in s.get("category", ""):
                     if not any(r["name"] == s["name"] for r in results):
                         results.append(s)
 
     # Check for specific names
-    for s in KEY_STAFF:
+    for s in staff_list:
         name_parts = s["name"].lower().split()
         if any(part in msg_lower for part in name_parts if len(part) > 3):
             if not any(r["name"] == s["name"] for r in results):

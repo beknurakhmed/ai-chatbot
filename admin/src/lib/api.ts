@@ -146,6 +146,44 @@ export const deleteTimetable = (id: number) =>
 export const refreshTimetable = () =>
   apiFetch<{ classes: number; entries_saved: number; updated: string }>("/admin/timetable/refresh", { method: "POST" });
 
+// --- Buildings ---
+export interface BuildingEntry {
+  id: number;
+  num: number;
+  name: string;
+  description?: string;
+  color: string;
+  is_active: boolean;
+}
+
+export const getBuildings = () => apiFetch<BuildingEntry[]>("/admin/buildings");
+export const createBuilding = (data: Omit<BuildingEntry, "id">) =>
+  apiFetch<BuildingEntry>("/admin/buildings", { method: "POST", body: JSON.stringify(data) });
+export const updateBuilding = (id: number, data: Omit<BuildingEntry, "id">) =>
+  apiFetch<BuildingEntry>(`/admin/buildings/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteBuilding = (id: number) =>
+  apiFetch<void>(`/admin/buildings/${id}`, { method: "DELETE" });
+
+// --- Rooms ---
+export interface RoomEntry {
+  id: number;
+  name: string;
+  block?: string;
+  floor?: number;
+  capacity?: number;
+  is_active: boolean;
+}
+
+export const getRooms = () => apiFetch<RoomEntry[]>("/admin/rooms");
+export const createRoom = (data: Omit<RoomEntry, "id">) =>
+  apiFetch<RoomEntry>("/admin/rooms", { method: "POST", body: JSON.stringify(data) });
+export const updateRoom = (id: number, data: Omit<RoomEntry, "id">) =>
+  apiFetch<RoomEntry>(`/admin/rooms/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteRoom = (id: number) =>
+  apiFetch<void>(`/admin/rooms/${id}`, { method: "DELETE" });
+export const syncRooms = () =>
+  apiFetch<{ synced: number; total_timetable_rooms: number; existing: number }>("/admin/rooms/sync", { method: "POST" });
+
 // --- Logs ---
 export interface LogEntry {
   id: number;

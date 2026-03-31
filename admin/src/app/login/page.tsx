@@ -29,19 +29,19 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Admin Panel</h1>
-        <p className="text-gray-500 text-sm mb-6">Enter your admin token to continue</p>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Admin Panel</h1>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Enter your admin token to continue</p>
         <form onSubmit={handleLogin} className="space-y-4">
           <input
             type="password"
             placeholder="Admin token"
             value={token}
             onChange={(e) => setTokenInput(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             required
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
           <button
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition"

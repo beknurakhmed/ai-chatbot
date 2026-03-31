@@ -117,7 +117,7 @@ export default function NewsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">News</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">News</h1>
         <div className="flex gap-3">
           <button
             onClick={handleRefresh}
@@ -136,47 +136,47 @@ export default function NewsPage() {
       </div>
 
       {refreshResult && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded mb-4 flex items-center justify-between">
+        <div className="bg-green-50 border border-green-200 text-green-700 dark:bg-green-900/30 dark:border-green-800 dark:text-green-400 px-4 py-3 rounded mb-4 flex items-center justify-between">
           <span>{refreshResult}</span>
-          <button onClick={() => setRefreshResult(null)} className="text-green-500 hover:text-green-700 text-lg leading-none">
+          <button onClick={() => setRefreshResult(null)} className="text-green-500 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 text-lg leading-none">
             &times;
           </button>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 px-4 py-3 rounded mb-4">
           {error}
         </div>
       )}
 
       {loading ? (
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-gray-500 dark:text-gray-400">Loading...</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">ID</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Published</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Active</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">URL</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Title</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Published</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Active</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">URL</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-500">{item.id}</td>
+                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.id}</td>
                   <td className="px-4 py-3 font-medium max-w-xs truncate">{item.title}</td>
-                  <td className="px-4 py-3 text-gray-500">{formatDate(item.published_at)}</td>
+                  <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{formatDate(item.published_at)}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-0.5 rounded text-xs font-medium ${
                         item.is_active
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-500"
+                          ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                          : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
                       }`}
                     >
                       {item.is_active ? "Yes" : "No"}
@@ -193,7 +193,7 @@ export default function NewsPage() {
                         Link
                       </a>
                     ) : (
-                      <span className="text-gray-400 text-xs">-</span>
+                      <span className="text-gray-400 dark:text-gray-500 text-xs">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 space-x-2">
@@ -214,7 +214,7 @@ export default function NewsPage() {
               ))}
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-400 dark:text-gray-500">
                     No news items found
                   </td>
                 </tr>
@@ -227,39 +227,39 @@ export default function NewsPage() {
       {/* Add/Edit Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                 {editId !== null ? "Edit News" : "Add News"}
               </h2>
             </div>
             <div className="px-6 py-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
                 <input
                   type="text"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Published At</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Published At</label>
                 <input
                   type="text"
                   value={form.published_at}
                   onChange={(e) => setForm({ ...form, published_at: e.target.value })}
                   placeholder="e.g. 2024-01-15T10:00:00"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL</label>
                 <input
                   type="text"
                   value={form.url}
                   onChange={(e) => setForm({ ...form, url: e.target.value })}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -270,15 +270,15 @@ export default function NewsPage() {
                   onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                   className="w-4 h-4 accent-blue-600"
                 />
-                <label htmlFor="is_active_news" className="text-sm font-medium text-gray-700">
+                <label htmlFor="is_active_news" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Active
                 </label>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
               <button
                 onClick={() => setShowForm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
                 Cancel
               </button>
@@ -297,15 +297,15 @@ export default function NewsPage() {
       {/* Delete Confirmation */}
       {deleteId !== null && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">Confirm Delete</h2>
-            <p className="text-sm text-gray-600 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Confirm Delete</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               Are you sure you want to delete news item #{deleteId}?
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteId(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
                 Cancel
               </button>

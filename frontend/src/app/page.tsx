@@ -16,6 +16,7 @@ import { useChat } from "@/hooks/useChat";
 import { useTts } from "@/hooks/useTts";
 import { useTypewriter } from "@/hooks/useTypewriter";
 import { t } from "@/i18n";
+import AuthorFooter from "@/components/AuthorFooter";
 
 export default function KioskPage() {
   const locale = useAppStore((s) => s.locale);
@@ -237,14 +238,15 @@ export default function KioskPage() {
       </AnimatePresence>
 
       {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-6 py-3 bg-white/60 backdrop-blur-sm border-b border-blue-100">
-        <div className="flex items-center gap-3">
-          <img src="/ajou-logo.png" alt="Ajou University in Tashkent" className="h-10 w-auto" />
-          <h1 className="text-base md:text-lg font-bold text-gray-800">
-            Ajou University in Tashkent
+      <header className="flex items-center justify-between px-3 md:px-6 py-2 md:py-3 bg-white/60 backdrop-blur-sm border-b border-blue-100">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <img src="/ajou-logo.png" alt="AUT" className="h-8 md:h-10 w-auto flex-shrink-0" />
+          <h1 className="text-sm md:text-lg font-bold text-gray-800 truncate">
+            <span className="hidden sm:inline">Ajou University in Tashkent</span>
+            <span className="sm:hidden">AUT</span>
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
           {/* Status indicator */}
           <div className={`w-2 h-2 rounded-full ${state === "active" ? "bg-green-400" : state === "idle" ? "bg-yellow-400" : "bg-gray-300"}`} />
 
@@ -273,10 +275,10 @@ export default function KioskPage() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col items-center py-3 overflow-hidden">
+      <main className="flex-1 flex flex-col items-center py-1 md:py-3 overflow-hidden">
         {/* Chito + bubble */}
         <motion.div
-          className="flex flex-col items-center gap-3 flex-shrink-0"
+          className="flex flex-col items-center gap-1 md:gap-3 flex-shrink-0"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -303,7 +305,7 @@ export default function KioskPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
-            className="text-gray-500 text-sm md:text-base text-center px-4 mt-2"
+            className="text-gray-500 text-xs md:text-base text-center px-4 mt-1 md:mt-2"
           >
             {t(locale, "welcomeSub")}
           </motion.p>
@@ -322,12 +324,20 @@ export default function KioskPage() {
         )}
       </main>
 
-      {/* Chat input */}
+      {/* Chat input + author */}
       <footer className="bg-white/60 backdrop-blur-sm border-t border-blue-100 w-full">
         <div className="max-w-2xl mx-auto">
           <ChatInput />
+          <div className="text-center pb-1 md:hidden">
+            <AuthorFooter inline />
+          </div>
         </div>
       </footer>
+
+      {/* Author badge — desktop only (fixed corner) */}
+      <div className="hidden md:block">
+        <AuthorFooter />
+      </div>
     </div>
   );
 }

@@ -1,3 +1,13 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg-primary: 255 255 255;
+  --bg-secondary: 249 250 251;
+}
+
+.dark {
+  --bg-primary: 17 24 39;
+  --bg-secondary: 31 41 55;
+}

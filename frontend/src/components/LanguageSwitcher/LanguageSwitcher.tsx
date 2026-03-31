@@ -3,12 +3,15 @@
 import { useAppStore } from "@/lib/store";
 import type { Locale } from "@/i18n";
 
-const languages: { code: Locale; label: string }[] = [
+const ALL_LANGUAGES: { code: Locale; label: string }[] = [
   { code: "uz", label: "O'zbek" },
   { code: "ru", label: "Русский" },
   { code: "en", label: "English" },
   { code: "kr", label: "한국어" },
 ];
+
+const enabledCodes = (process.env.NEXT_PUBLIC_LANGUAGES || "uz,ru,en,kr").split(",").map((s) => s.trim());
+const languages = ALL_LANGUAGES.filter((l) => enabledCodes.includes(l.code));
 
 export default function LanguageSwitcher() {
   const locale = useAppStore((s) => s.locale);

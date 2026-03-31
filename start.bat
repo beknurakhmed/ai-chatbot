@@ -8,6 +8,24 @@ echo   Chito - AUT Kiosk Chatbot
 echo ============================================
 echo.
 
+:: Load .env
+if exist .env (
+    for /f "usebackq tokens=1,* delims==" %%a in (".env") do (
+        set "line=%%a"
+        if not "!line:~0,1!"=="#" (
+            if not "%%a"=="" set "%%a=%%b"
+        )
+    )
+)
+setlocal enabledelayedexpansion
+
+:: Defaults
+if not defined BACKEND_PORT set BACKEND_PORT=8000
+if not defined FRONTEND_PORT set FRONTEND_PORT=3000
+if not defined ADMIN_PORT set ADMIN_PORT=3001
+if not defined OLLAMA_PORT set OLLAMA_PORT=11434
+if not defined OLLAMA_MODEL set OLLAMA_MODEL=qwen2.5:3b
+
 :: Check Docker
 docker --version >nul 2>&1
 if %errorlevel% neq 0 (
@@ -22,6 +40,25 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 echo [OK] Docker is running.
+echo.
+
+:: Create .env files if missing
+if not exist .env (
+    copy .env.example .env >nul
+    echo [INFO] Created .env from .env.example
+)
+if not exist backend\.env (
+    copy backend\.env.example backend\.env >nul
+    echo [INFO] Created backend\.env from .env.example
+)
+if not exist frontend\.env.local (
+    copy frontend\.env.example frontend\.env.local >nul
+    echo [INFO] Created frontend\.env.local from .env.example
+)
+if not exist admin\.env.local (
+    copy admin\.env.example admin\.env.local >nul
+    echo [INFO] Created admin\.env.local from .env.example
+)
 echo.
 
 :: Check if images exist, build if not
@@ -103,7 +140,7 @@ if %tries% geq 30 (
     goto pull_model
 )
 timeout /t 2 /nobreak >nul
-curl -sf http://localhost:11434/api/tags >nul 2>&1
+curl -sf http://localhost:%OLLAMA_PORT%/api/tags >nul 2>&1
 if %errorlevel% equ 0 goto pull_model
 set /a tries+=1
 goto wait_ollama
@@ -111,13 +148,13 @@ goto wait_ollama
 :pull_model
 :: Check if model exists, pull if not
 echo   Checking LLM model...
-curl -sf http://localhost:11434/api/tags 2>nul | findstr /i "qwen2.5:7b" >nul 2>&1
+curl -sf http://localhost:%OLLAMA_PORT%/api/tags 2>nul | findstr /i "%OLLAMA_MODEL%" >nul 2>&1
 if %errorlevel% neq 0 (
-    echo   Model qwen2.5:7b not found. Pulling (~4.7GB, please wait)...
-    docker exec aut-ollama ollama pull qwen2.5:7b
+    echo   Model %OLLAMA_MODEL% not found. Pulling...
+    docker exec aut-ollama ollama pull %OLLAMA_MODEL%
     echo   [OK] Model pulled.
 ) else (
-    echo   [OK] Model qwen2.5:7b exists.
+    echo   [OK] Model %OLLAMA_MODEL% exists.
 )
 echo.
 
@@ -131,7 +168,7 @@ if %tries% geq 60 (
     goto open
 )
 timeout /t 3 /nobreak >nul
-curl -sf http://localhost:8000/health >nul 2>&1
+curl -sf http://localhost:%BACKEND_PORT%/health >nul 2>&1
 if %errorlevel% equ 0 goto backend_ready
 set /a tries+=1
 echo   ... waiting (%tries%/60)
@@ -147,13 +184,13 @@ echo.
 echo ============================================
 echo   All services are running!
 echo.
-echo   Frontend:  http://localhost:3000
-echo   Admin:     http://localhost:3001
-echo   Backend:   http://localhost:8000
-echo   Ollama:    http://localhost:11434
+echo   Frontend:  http://localhost:%FRONTEND_PORT%
+echo   Admin:     http://localhost:%ADMIN_PORT%
+echo   Backend:   http://localhost:%BACKEND_PORT%
+echo   Ollama:    http://localhost:%OLLAMA_PORT%
 echo ============================================
 echo.
-start http://localhost:3000
+start http://localhost:%FRONTEND_PORT%
 
 echo Press any key to STOP all services...
 pause >nul

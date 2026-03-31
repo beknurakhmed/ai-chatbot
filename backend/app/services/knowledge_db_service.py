@@ -1,10 +1,10 @@
 """Knowledge DB service — loads knowledge entries and keywords from database.
 
 Maintains an in-memory cache, refreshed on startup and via admin /refresh endpoint.
-Falls back to static knowledge_base.py if DB has no entries.
 """
 
 import asyncio
+import time
 from sqlalchemy import select
 from ..database import async_session
 from ..models.db_models import KnowledgeEntry, Keyword
@@ -14,10 +14,17 @@ from ..models.db_models import KnowledgeEntry, Keyword
 _knowledge_text: str = ""
 _keywords_by_intent: dict[str, list[str]] = {}
 _loaded: bool = False
+_last_loaded: float = 0.0
+_CACHE_TTL: float = 300.0  # 5 minutes
+
+
+def _cache_expired() -> bool:
+    """Check if the cache TTL has been exceeded."""
+    return (time.monotonic() - _last_loaded) > _CACHE_TTL
 
 
 async def _load_from_db() -> None:
-    global _knowledge_text, _keywords_by_intent, _loaded
+    global _knowledge_text, _keywords_by_intent, _loaded, _last_loaded
 
     async with async_session() as db:
         # Load active knowledge entries
@@ -52,6 +59,7 @@ async def _load_from_db() -> None:
         _keywords_by_intent = by_intent
 
     _loaded = True
+    _last_loaded = time.monotonic()
 
 
 async def refresh() -> None:
@@ -60,21 +68,16 @@ async def refresh() -> None:
 
 
 async def get_knowledge_text() -> str:
-    """Return combined knowledge text from DB (or static fallback)."""
-    if not _loaded:
+    """Return combined knowledge text from DB only."""
+    if not _loaded or _cache_expired():
         await _load_from_db()
 
-    if _knowledge_text:
-        return _knowledge_text
-
-    # Fallback to static knowledge base
-    from .knowledge_base import get_knowledge
-    return get_knowledge()
+    return _knowledge_text
 
 
 async def get_keywords_by_intent(intent: str) -> list[str]:
     """Return keywords for a specific intent from DB."""
-    if not _loaded:
+    if not _loaded or _cache_expired():
         await _load_from_db()
     return _keywords_by_intent.get(intent, [])
 

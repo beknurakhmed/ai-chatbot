@@ -1,5 +1,7 @@
 import os
+import asyncio
 from pathlib import Path
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 
 # Load .env — use __file__ to find backend dir
@@ -19,10 +21,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .routers import chat, timetable, tts, stt, face, face_ws, admin
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from .database import init_db
+    await init_db()
+    from .services.seed_service import seed_if_empty
+    await seed_if_empty()
+    from .services.knowledge_db_service import refresh
+    from .services.staff_service import load_staff_cache
+    await asyncio.gather(refresh(), load_staff_cache())
+    yield
+
+
 app = FastAPI(
     title="Chito — AUT Chatbot API",
     description="Backend API for the Ajou University in Tashkent chatbot kiosk",
     version="0.2.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -36,16 +52,6 @@ app.add_middleware(
 # Serve face data directory as static
 faces_dir = Path(__file__).parent / "data" / "faces"
 faces_dir.mkdir(parents=True, exist_ok=True)
-
-from .database import init_db
-
-@app.on_event("startup")
-async def startup():
-    await init_db()
-    from .services.seed_service import seed_if_empty
-    await seed_if_empty()
-    from .services.knowledge_db_service import refresh
-    await refresh()
 
 app.include_router(chat.router)
 app.include_router(timetable.router)
