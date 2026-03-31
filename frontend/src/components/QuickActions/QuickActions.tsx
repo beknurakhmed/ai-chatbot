@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/lib/store";
 import { t } from "@/i18n";
 import { useChat } from "@/hooks/useChat";
+import { useTts } from "@/hooks/useTts";
 
 const actions = [
   { key: "timetable", icon: "📅", bg: "bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 border-blue-200" },
@@ -16,9 +17,12 @@ const actions = [
 export default function QuickActions() {
   const locale = useAppStore((s) => s.locale);
   const { send } = useChat();
+  const { stop } = useTts();
 
   async function handleAction(key: string) {
     const label = t(locale, `quickActions.${key}`);
+    stop();
+    useAppStore.getState().setTtsEnabled(true);
     await send(label);
   }
 
