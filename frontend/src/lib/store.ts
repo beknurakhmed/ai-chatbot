@@ -97,6 +97,9 @@ interface AppState {
 
   ttsEnabled: boolean;
   setTtsEnabled: (v: boolean) => void;
+
+  ttsPreparingId: string | null;
+  setTtsPreparingId: (id: string | null) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -139,4 +142,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   ttsEnabled: false,
   setTtsEnabled: (ttsEnabled) => set({ ttsEnabled }),
+
+  ttsPreparingId: null,
+  setTtsPreparingId: (ttsPreparingId) => set({ ttsPreparingId }),
 }));

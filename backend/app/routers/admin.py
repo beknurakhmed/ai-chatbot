@@ -127,6 +127,14 @@ async def refresh_knowledge_cache():
     return {"status": "refreshed"}
 
 
+@router.post("/knowledge/reseed")
+async def reseed_knowledge():
+    """Delete all knowledge and re-seed from the latest AUT_KNOWLEDGE."""
+    from ..services.seed_service import reseed_knowledge
+    count = await reseed_knowledge()
+    return {"status": "reseeded", "count": count}
+
+
 # ── Keywords ────────────────────────────────────────────────────────────────
 
 @router.get("/keywords", response_model=list[KeywordOut])
@@ -267,6 +275,8 @@ async def create_staff(data: StaffIn, db: AsyncSession = Depends(get_db)):
     db.add(member)
     await db.commit()
     await db.refresh(member)
+    from ..services.staff_service import load_staff_cache
+    await load_staff_cache()
     return member
 
 
@@ -281,6 +291,8 @@ async def update_staff(staff_id: int, data: StaffIn, db: AsyncSession = Depends(
     member.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(member)
+    from ..services.staff_service import load_staff_cache
+    await load_staff_cache()
     return member
 
 
@@ -292,6 +304,8 @@ async def delete_staff(staff_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "Not found")
     await db.delete(member)
     await db.commit()
+    from ..services.staff_service import load_staff_cache
+    await load_staff_cache()
 
 
 # ── Staff refresh ────────────────────────────────────────────────────────────

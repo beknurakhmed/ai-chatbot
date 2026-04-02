@@ -6,7 +6,8 @@ import { useTts } from "./useTts";
 
 /**
  * Auto-speaks assistant messages only when TTS is enabled.
- * TTS is activated when user says "hi chito" via voice (STT).
+ * Sets ttsPreparingId while audio is loading so ChatMessages can hide text.
+ * Clears it when the first audio chunk starts playing.
  */
 export function useAutoTts() {
   const messages = useAppStore((s) => s.messages);
@@ -26,7 +27,14 @@ export function useAutoTts() {
     ) {
       lastSpokenIdRef.current = lastMsg.id;
       stop();
-      speak(lastMsg.content);
+
+      // Mark this message as "preparing TTS" — text will be hidden
+      useAppStore.getState().setTtsPreparingId(lastMsg.id);
+
+      speak(lastMsg.content, () => {
+        // First audio chunk ready — reveal the text
+        useAppStore.getState().setTtsPreparingId(null);
+      });
     }
   }, [messages, ttsEnabled, speak, stop]);
 }

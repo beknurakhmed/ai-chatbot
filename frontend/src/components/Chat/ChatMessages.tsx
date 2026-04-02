@@ -17,6 +17,7 @@ export default function ChatMessages({ hideLastAssistant }: ChatMessagesProps) {
   const messages = useAppStore((s) => s.messages);
   const isLoading = useAppStore((s) => s.isLoading);
   const locale = useAppStore((s) => s.locale);
+  const ttsPreparingId = useAppStore((s) => s.ttsPreparingId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Find the last assistant message id to optionally hide it
@@ -61,7 +62,15 @@ export default function ChatMessages({ hideLastAssistant }: ChatMessagesProps) {
                   : "bg-white text-gray-800 border border-blue-100 rounded-bl-md shadow-sm"
               }`}
             >
-              {msg.content}
+              {ttsPreparingId === msg.id ? (
+                <span className="flex items-center gap-1 text-gray-400">
+                  <span className="animate-bounce">●</span>
+                  <span className="animate-bounce" style={{ animationDelay: "0.1s" }}>●</span>
+                  <span className="animate-bounce" style={{ animationDelay: "0.2s" }}>●</span>
+                </span>
+              ) : (
+                msg.content
+              )}
               {/* Campus map with legend */}
               {msg.map && <CampusMap />}
               {/* Staff cards */}

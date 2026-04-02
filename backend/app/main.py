@@ -22,6 +22,34 @@ from fastapi.staticfiles import StaticFiles
 from .routers import chat, timetable, tts, stt, face, face_ws, admin
 
 
+async def _warmup_ollama():
+    """Send a tiny request to Ollama so the model is loaded into GPU memory."""
+    try:
+        import ollama as ollama_lib
+        model = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
+        host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        client = ollama_lib.AsyncClient(host=host)
+        await client.chat(
+            model=model,
+            messages=[{"role": "user", "content": "hi"}],
+            options={"num_predict": 1},
+        )
+        print(f"[warmup] Ollama model '{model}' loaded into GPU ✓")
+    except Exception as e:
+        print(f"[warmup] Ollama warmup failed (non-fatal): {e}")
+
+
+async def _warmup_tts():
+    """Pre-load Silero TTS models so first speech request is fast."""
+    from .services.tts_service import get_silero_model
+    for locale in ("uz", "ru", "en"):
+        try:
+            await asyncio.to_thread(get_silero_model, locale)
+            print(f"[warmup] Silero TTS '{locale}' loaded ✓")
+        except Exception as e:
+            print(f"[warmup] Silero TTS '{locale}' failed (non-fatal): {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from .database import init_db
@@ -30,7 +58,7 @@ async def lifespan(app: FastAPI):
     await seed_if_empty()
     from .services.knowledge_db_service import refresh
     from .services.staff_service import load_staff_cache
-    await asyncio.gather(refresh(), load_staff_cache())
+    await asyncio.gather(refresh(), load_staff_cache(), _warmup_ollama(), _warmup_tts())
     yield
 
 

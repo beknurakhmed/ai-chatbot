@@ -12,9 +12,9 @@ _silero_models: dict = {}
 
 # Silero model configs per language
 SILERO_CONFIG = {
-    "ru": {"model_id": "v4_ru", "speaker": "baya", "sample_rate": 68000},
-    "en": {"model_id": "v3_en", "speaker": "en_21", "sample_rate": 48000},
-    "uz": {"model_id": "v4_uz", "speaker": "dilnavoz", "sample_rate": 48000},
+    "ru": {"model_id": "v4_ru", "speaker": "baya_v2", "sample_rate": 48000},
+    "en": {"model_id": "v3_en", "speaker": "lj_v2", "sample_rate": 48000},
+    "uz": {"model_id": "v4_uz", "speaker": "dilnavoz_v2", "sample_rate": 48000},
 }
 
 # edge-tts fallback for Korean

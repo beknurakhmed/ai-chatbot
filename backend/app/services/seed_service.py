@@ -33,16 +33,26 @@ def _parse_knowledge_sections() -> list[dict]:
         title_lower = title.lower()
         if any(w in title_lower for w in ['general', 'about']):
             category = 'general'
+        elif any(w in title_lower for w in ['history']):
+            category = 'history'
+        elif any(w in title_lower for w in ['why choose', 'why aut']):
+            category = 'general'
+        elif any(w in title_lower for w in ['fact', 'statistic']):
+            category = 'facts'
         elif any(w in title_lower for w in ['leadership', 'rector', 'vice']):
             category = 'leadership'
+        elif any(w in title_lower for w in ['subject', 'curriculum']):
+            category = 'curriculum'
         elif 'academic' in title_lower or 'program' in title_lower or 'department' in title_lower:
             category = 'academic'
         elif 'tuition' in title_lower or 'fee' in title_lower:
             category = 'fees'
         elif 'admission' in title_lower:
             category = 'admission'
-        elif 'campus' in title_lower or 'building' in title_lower or 'room' in title_lower or 'facilit' in title_lower:
+        elif any(w in title_lower for w in ['campus', 'building', 'room', 'facilit']):
             category = 'campus'
+        elif any(w in title_lower for w in ['transport', 'bus', 'how to reach']):
+            category = 'transport'
         elif 'student' in title_lower or 'club' in title_lower:
             category = 'student_life'
         elif 'online' in title_lower or 'platform' in title_lower:
@@ -182,6 +192,22 @@ SEED_BUILDINGS = [
     {"num": 5, "name": "Dormitory", "description": "Student housing", "color": "bg-purple-500"},
     {"num": 6, "name": "Parking lot", "description": "Vehicle parking", "color": "bg-pink-500"},
 ]
+
+
+async def reseed_knowledge() -> int:
+    """Delete all knowledge entries and re-seed from AUT_KNOWLEDGE. Returns count."""
+    from sqlalchemy import delete
+    async with async_session() as db:
+        await db.execute(delete(KnowledgeEntry))
+        entries = _parse_knowledge_sections()
+        for e in entries:
+            db.add(KnowledgeEntry(**e))
+        await db.commit()
+    # Refresh the in-memory cache
+    from .knowledge_db_service import refresh
+    await refresh()
+    print(f"[Seed] Re-seeded {len(entries)} knowledge entries")
+    return len(entries)
 
 
 # ── Main seed function ────────────────────────────────────────────────────────

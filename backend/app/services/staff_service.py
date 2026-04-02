@@ -140,21 +140,28 @@ async def load_staff_cache() -> None:
 
 
 async def save_staff_to_db(staff_list: list[dict]) -> int:
-    """Save staff list to DB, replacing existing records."""
-    from sqlalchemy import delete
+    """Merge scraped staff into DB: update existing by name, add new, keep manual entries."""
+    from sqlalchemy import select
     from ..database import async_session
     from ..models.db_models import StaffMember
 
     async with async_session() as db:
-        await db.execute(delete(StaffMember))
+        result = await db.execute(select(StaffMember))
+        existing = {m.name: m for m in result.scalars().all()}
+
         for s in staff_list:
-            member = StaffMember(
-                name=s["name"],
-                position=s.get("position", ""),
-                photo=s.get("photo", ""),
-                category=s.get("category", ""),
-            )
-            db.add(member)
+            if s["name"] in existing:
+                m = existing[s["name"]]
+                m.position = s.get("position", m.position)
+                m.photo = s.get("photo", "") or m.photo
+                m.category = s.get("category", m.category)
+            else:
+                db.add(StaffMember(
+                    name=s["name"],
+                    position=s.get("position", ""),
+                    photo=s.get("photo", ""),
+                    category=s.get("category", ""),
+                ))
         await db.commit()
     # Refresh in-memory cache
     await load_staff_cache()
