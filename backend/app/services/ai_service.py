@@ -433,7 +433,7 @@ async def chat_ollama(message: str, locale: str, history: list[dict], user_name:
 
     try:
         ollama_client = ollama_lib.AsyncClient(host=host)
-        response = await ollama_client.chat(model=model, messages=messages)
+        response = await ollama_client.chat(model=model, messages=messages, keep_alive=-1)
         text = response["message"]["content"]
         reply, mood = extract_mood(text)
         return {"reply": reply, "mood": mood}

@@ -64,6 +64,7 @@ services:
     volumes:
       - ./backend/app/data:/app/app/data
       - insightface-models:/root/.insightface
+      - torch-hub-cache:/root/.cache/torch
     deploy:
       resources:
         reservations:
@@ -107,3 +108,4 @@ volumes:
   postgres-data:
   ollama-models:
   insightface-models:
+  torch-hub-cache:

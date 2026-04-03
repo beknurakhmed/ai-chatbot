@@ -33,6 +33,7 @@ async def _warmup_ollama():
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             options={"num_predict": 1},
+            keep_alive=-1,
         )
         print(f"[warmup] Ollama model '{model}' loaded into GPU ✓")
     except Exception as e:
