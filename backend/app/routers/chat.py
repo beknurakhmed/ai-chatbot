@@ -38,6 +38,6 @@ async def get_buildings(db: AsyncSession = Depends(get_db)):
     )
     buildings = result.scalars().all()
     return [
-        {"num": b.num, "name": b.name, "desc": b.description or "", "color": b.color}
+        {"num": b.num, "name": b.name, "desc": b.description or "", "color": b.color, "photo": b.photo or ""}
         for b in buildings
     ]

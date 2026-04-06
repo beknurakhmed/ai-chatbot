@@ -75,6 +75,7 @@ export interface BuildingData {
   name: string;
   desc: string;
   color: string;
+  photo: string;
 }
 
 export async function fetchBuildings(): Promise<BuildingData[]> {

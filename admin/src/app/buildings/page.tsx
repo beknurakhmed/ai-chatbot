@@ -32,11 +32,22 @@ export default function BuildingsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
+  // Campus map image URL (stored as building num=0)
+  const [mapUrl, setMapUrl] = useState("");
+  const [mapId, setMapId] = useState<number | null>(null);
+  const [savingMap, setSavingMap] = useState(false);
+
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      setBuildings(await getBuildings());
+      const all = await getBuildings();
+      const mapEntry = all.find((b) => b.num === 0);
+      if (mapEntry) {
+        setMapUrl(mapEntry.photo || "");
+        setMapId(mapEntry.id);
+      }
+      setBuildings(all.filter((b) => b.num > 0));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");
     } finally {
@@ -45,6 +56,22 @@ export default function BuildingsPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function saveMapUrl() {
+    setSavingMap(true);
+    try {
+      if (mapId !== null) {
+        await updateBuilding(mapId, { num: 0, name: "Campus Map", description: "Map image URL", photo: mapUrl, color: "bg-blue-500", is_active: true });
+      } else {
+        await createBuilding({ num: 0, name: "Campus Map", description: "Map image URL", photo: mapUrl, color: "bg-blue-500", is_active: true });
+      }
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingMap(false);
+    }
+  }
 
   function openAdd() {
     setEditId(null);
@@ -92,6 +119,30 @@ export default function BuildingsPage() {
         <button onClick={openAdd} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
           + Add Building
         </button>
+      </div>
+
+      {/* Campus Map Image URL */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
+        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Campus Map Image</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={mapUrl}
+            onChange={(e) => setMapUrl(e.target.value)}
+            placeholder="https://example.com/campus-map.jpg or /campus/map.jpg"
+            className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={saveMapUrl}
+            disabled={savingMap}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+          >
+            {savingMap ? "..." : "Save"}
+          </button>
+        </div>
+        {mapUrl && (
+          <img src={mapUrl} alt="Campus Map Preview" className="mt-3 w-full max-h-48 object-contain rounded-lg border border-gray-200 dark:border-gray-600" />
+        )}
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400 px-4 py-3 rounded mb-4">{error}</div>}

@@ -152,6 +152,7 @@ export interface BuildingEntry {
   num: number;
   name: string;
   description?: string;
+  photo?: string;
   color: string;
   is_active: boolean;
 }

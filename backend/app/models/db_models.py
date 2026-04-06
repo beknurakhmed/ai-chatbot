@@ -122,6 +122,7 @@ class Building(Base):
     num = Column(Integer, nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     description = Column(String(500), nullable=True)
+    photo = Column(String(500), nullable=True)  # URL or path to building photo
     color = Column(String(50), default="bg-blue-500")  # Tailwind class
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)

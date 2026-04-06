@@ -5,21 +5,27 @@ import { fetchBuildings, type BuildingData } from "@/lib/api";
 
 export default function CampusMap() {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
+  const [mapImage, setMapImage] = useState("/campus/map.jpg");
 
   useEffect(() => {
-    fetchBuildings().then(setBuildings);
+    fetchBuildings().then((all) => {
+      // num=0 is the campus map image
+      const mapEntry = all.find((b) => b.num === 0);
+      if (mapEntry?.photo) setMapImage(mapEntry.photo);
+      setBuildings(all.filter((b) => b.num > 0));
+    });
   }, []);
 
   return (
     <div className="mt-3 space-y-3">
-      {/* Map image */}
+      {/* Map image from DB */}
       <img
-        src="/campus/map.jpg"
+        src={mapImage}
         alt="AUT Campus Map"
         className="w-full rounded-xl border border-blue-100 shadow-sm"
       />
 
-      {/* Legend */}
+      {/* Legend from DB */}
       {buildings.length > 0 && (
         <div className="grid grid-cols-2 gap-1.5">
           {buildings.map((b) => (

@@ -396,6 +396,7 @@ class BuildingIn(BaseModel):
     num: int
     name: str
     description: str | None = None
+    photo: str | None = None
     color: str = "bg-blue-500"
     is_active: bool = True
 

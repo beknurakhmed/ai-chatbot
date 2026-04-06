@@ -209,6 +209,7 @@ Based on prestigious school graduation:
 Based on entrance exam results: up to 50% scholarship
 
 ## Campus Buildings (numbered on map)
+Note: The campus map with numbered buildings is automatically shown to the user. Just describe the buildings.
 1. Entrance Gate — main entry to campus
 2. A Block — Lesson rooms, Library (2nd floor), Computer Labs (4th floor, Rooms 401-405)
 3. B Block — Administration, Lesson rooms, Rector's Office (3rd floor, Room 301), Admissions Office (1st floor, Room 105), Student Affairs (1st floor, Room 110)
