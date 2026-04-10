@@ -1,10 +1,11 @@
 @echo off
+setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
-title AUT Chatbot - Chito
+title Uzum Onboarding Platform
 cd /d "%~dp0"
 
 echo ============================================
-echo   Chito - AUT Kiosk Chatbot
+echo   Uzum Onboarding Platform
 echo ============================================
 echo.
 
@@ -17,7 +18,6 @@ if exist .env (
         )
     )
 )
-setlocal enabledelayedexpansion
 
 :: Defaults
 if not defined BACKEND_PORT set BACKEND_PORT=8000
@@ -52,78 +52,18 @@ if not exist backend\.env (
     echo [INFO] Created backend\.env from .env.example
 )
 if not exist frontend\.env.local (
-    copy frontend\.env.example frontend\.env.local >nul
-    echo [INFO] Created frontend\.env.local from .env.example
+    copy frontend\.env.example frontend\.env.local >nul 2>nul
+    echo [INFO] Created frontend\.env.local
 )
 if not exist admin\.env.local (
-    copy admin\.env.example admin\.env.local >nul
-    echo [INFO] Created admin\.env.local from .env.example
+    copy admin\.env.example admin\.env.local >nul 2>nul
+    echo [INFO] Created admin\.env.local
 )
 echo.
 
-:: Check if images exist, build if not
-echo [1/5] Checking images...
-
-docker image inspect aut-backend >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   Backend image not found. Building...
-    docker compose build backend
-    if %errorlevel% neq 0 (
-        echo [ERROR] Backend build failed.
-        pause
-        exit /b 1
-    )
-    echo   [OK] Backend image built.
-) else (
-    echo   [OK] Backend image exists.
-)
-
-docker image inspect aut-frontend >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   Frontend image not found. Building...
-    docker compose build frontend
-    if %errorlevel% neq 0 (
-        echo [ERROR] Frontend build failed.
-        pause
-        exit /b 1
-    )
-    echo   [OK] Frontend image built.
-) else (
-    echo   [OK] Frontend image exists.
-)
-
-docker image inspect aut-admin >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   Admin image not found. Building...
-    docker compose build admin
-    if %errorlevel% neq 0 (
-        echo [ERROR] Admin build failed.
-        pause
-        exit /b 1
-    )
-    echo   [OK] Admin image built.
-) else (
-    echo   [OK] Admin image exists.
-)
-
-docker image inspect ollama/ollama:latest >nul 2>&1
-if %errorlevel% neq 0 (
-    echo   Ollama image not found. Pulling (~4GB, please wait)...
-    docker pull ollama/ollama:latest
-    if %errorlevel% neq 0 (
-        echo [ERROR] Ollama pull failed.
-        pause
-        exit /b 1
-    )
-    echo   [OK] Ollama image pulled.
-) else (
-    echo   [OK] Ollama image exists.
-)
-echo.
-
-:: Start services
-echo [2/5] Starting services...
-docker compose up -d
+:: Build and start
+echo [1/4] Building and starting services...
+docker compose up --build -d
 if %errorlevel% neq 0 (
     echo [ERROR] docker compose up failed.
     pause
@@ -132,7 +72,7 @@ if %errorlevel% neq 0 (
 echo.
 
 :: Wait for Ollama
-echo [3/5] Waiting for Ollama...
+echo [2/4] Waiting for Ollama...
 set /a tries=0
 :wait_ollama
 if %tries% geq 30 (
@@ -146,12 +86,11 @@ set /a tries+=1
 goto wait_ollama
 
 :pull_model
-:: Check if model exists, pull if not
 echo   Checking LLM model...
 curl -sf http://localhost:%OLLAMA_PORT%/api/tags 2>nul | findstr /i "%OLLAMA_MODEL%" >nul 2>&1
 if %errorlevel% neq 0 (
     echo   Model %OLLAMA_MODEL% not found. Pulling...
-    docker exec aut-ollama ollama pull %OLLAMA_MODEL%
+    docker exec uzum-ollama ollama pull %OLLAMA_MODEL%
     echo   [OK] Model pulled.
 ) else (
     echo   [OK] Model %OLLAMA_MODEL% exists.
@@ -159,11 +98,11 @@ if %errorlevel% neq 0 (
 echo.
 
 :: Wait for backend
-echo [4/5] Waiting for backend...
+echo [3/4] Waiting for backend...
 set /a tries=0
 :wait_backend
-if %tries% geq 60 (
-    echo   [WARN] Backend still starting. First run downloads InsightFace model (~300MB).
+if %tries% geq 30 (
+    echo   [WARN] Backend still starting...
     echo          Check: docker compose logs -f backend
     goto open
 )
@@ -171,7 +110,7 @@ timeout /t 3 /nobreak >nul
 curl -sf http://localhost:%BACKEND_PORT%/health >nul 2>&1
 if %errorlevel% equ 0 goto backend_ready
 set /a tries+=1
-echo   ... waiting (%tries%/60)
+echo   ... waiting (%tries%/30)
 goto wait_backend
 
 :backend_ready
@@ -179,7 +118,7 @@ echo   [OK] Backend is ready!
 echo.
 
 :open
-echo [5/5] Opening browser...
+echo [4/4] Opening browser...
 echo.
 echo ============================================
 echo   All services are running!

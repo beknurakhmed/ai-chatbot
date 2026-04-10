@@ -8,7 +8,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo "============================================"
-echo "  Chito - AUT Kiosk Chatbot"
+echo "  Uzum Onboarding Platform"
 echo "============================================"
 echo
 
@@ -57,7 +57,7 @@ echo
 # Check/build images
 echo "[1/5] Checking images..."
 
-if ! docker image inspect aut-backend &> /dev/null; then
+if ! docker image inspect uzum-backend &> /dev/null; then
     echo "  Backend image not found. Building..."
     docker compose build backend
     echo -e "  ${GREEN}[OK] Backend image built.${NC}"
@@ -65,7 +65,7 @@ else
     echo -e "  ${GREEN}[OK] Backend image exists.${NC}"
 fi
 
-if ! docker image inspect aut-frontend &> /dev/null; then
+if ! docker image inspect uzum-frontend &> /dev/null; then
     echo "  Frontend image not found. Building..."
     docker compose build frontend
     echo -e "  ${GREEN}[OK] Frontend image built.${NC}"
@@ -73,7 +73,7 @@ else
     echo -e "  ${GREEN}[OK] Frontend image exists.${NC}"
 fi
 
-if ! docker image inspect aut-admin &> /dev/null; then
+if ! docker image inspect uzum-admin &> /dev/null; then
     echo "  Admin image not found. Building..."
     docker compose build admin
     echo -e "  ${GREEN}[OK] Admin image built.${NC}"
@@ -108,7 +108,7 @@ done
 echo "  Checking LLM model..."
 if ! curl -sf http://localhost:${OLLAMA_PORT}/api/tags 2>/dev/null | grep -qi "${OLLAMA_MODEL}"; then
     echo "  Model ${OLLAMA_MODEL} not found. Pulling..."
-    docker exec aut-ollama ollama pull ${OLLAMA_MODEL}
+    docker exec uzum-ollama ollama pull ${OLLAMA_MODEL}
     echo -e "  ${GREEN}[OK] Model pulled.${NC}"
 else
     echo -e "  ${GREEN}[OK] Model ${OLLAMA_MODEL} exists.${NC}"

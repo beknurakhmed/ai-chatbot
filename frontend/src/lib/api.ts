@@ -9,15 +9,11 @@ export async function sendMessage(
   message: string,
   locale: string,
   history: HistoryMsg[] = [],
-  userName?: string | null,
-  faceAttributes?: { age: number | null; gender: string | null; expression: string | null; expressionScore: number } | null,
+  employeeName?: string | null,
 ): Promise<{
   reply: string;
   mood: string;
-  timetable?: { group: string; lessons: Array<{ day: string; period: string; time: string; subject: string; teacher: string; room: string }> };
-  staff?: Array<{ name: string; position: string; photo: string }>;
-  news?: Array<{ title: string; url: string; date: string }>;
-  map?: boolean;
+  onboarding?: Array<{ id: number; title: string; description: string | null; category: string }>;
 }> {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
@@ -26,8 +22,7 @@ export async function sendMessage(
       message,
       locale,
       history,
-      user_name: userName || undefined,
-      face_attributes: faceAttributes?.age ? faceAttributes : undefined,
+      employee_name: employeeName || undefined,
     }),
   });
 
@@ -39,48 +34,11 @@ export function getTtsUrl(text: string, locale: string): string {
   return `${API_BASE}/api/tts?text=${encodeURIComponent(text)}&locale=${locale}`;
 }
 
-export async function recognizeFace(
-  imageData: string
-): Promise<{ name: string | null; confidence: number }> {
-  const res = await fetch(`${API_BASE}/api/face/recognize`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: imageData }),
-  });
-
-  if (!res.ok) throw new Error("Face recognition failed");
-  return res.json();
-}
-
-export async function saveFaceToBackend(
-  name: string,
-  descriptor: number[]
-): Promise<boolean> {
+export async function fetchOnboardingTasks(): Promise<
+  Array<{ id: number; title: string; description: string | null; category: string; order_num: number }>
+> {
   try {
-    const res = await fetch(`${API_BASE}/api/face/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, descriptor }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    return data.ok;
-  } catch {
-    return false;
-  }
-}
-
-export interface BuildingData {
-  num: number;
-  name: string;
-  desc: string;
-  color: string;
-  photo: string;
-}
-
-export async function fetchBuildings(): Promise<BuildingData[]> {
-  try {
-    const res = await fetch(`${API_BASE}/api/buildings`);
+    const res = await fetch(`${API_BASE}/api/onboarding/tasks`);
     if (!res.ok) return [];
     return res.json();
   } catch {
@@ -88,15 +46,39 @@ export async function fetchBuildings(): Promise<BuildingData[]> {
   }
 }
 
-export async function loadFacesFromBackend(): Promise<
-  Array<{ name: string; descriptor: number[] }>
-> {
-  try {
-    const res = await fetch(`${API_BASE}/api/face/list`);
-    if (!res.ok) return [];
-    const data = await res.json();
-    return data.faces || [];
-  } catch {
-    return [];
-  }
+export async function fetchOnboardingProgress(employeeName: string): Promise<{
+  employee_name: string;
+  total: number;
+  completed: number;
+  tasks: Array<{ id: number; title: string; description: string | null; category: string; is_completed: boolean }>;
+}> {
+  const res = await fetch(`${API_BASE}/api/onboarding/progress/${encodeURIComponent(employeeName)}`);
+  if (!res.ok) throw new Error("Failed to fetch progress");
+  return res.json();
+}
+
+export async function completeOnboardingTask(employeeName: string, taskId: number): Promise<void> {
+  await fetch(`${API_BASE}/api/onboarding/complete?employee_name=${encodeURIComponent(employeeName)}&task_id=${taskId}`, {
+    method: "POST",
+  });
+}
+
+export async function uncompleteOnboardingTask(employeeName: string, taskId: number): Promise<void> {
+  await fetch(`${API_BASE}/api/onboarding/uncomplete?employee_name=${encodeURIComponent(employeeName)}&task_id=${taskId}`, {
+    method: "POST",
+  });
+}
+
+export async function submitSurvey(data: {
+  employee_name: string;
+  mood_score: number;
+  comment?: string;
+  category?: string;
+  survey_date: string;
+}): Promise<void> {
+  await fetch(`${API_BASE}/api/survey`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
 }

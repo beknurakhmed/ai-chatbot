@@ -1,22 +1,22 @@
-# Chito - AUT AI Chatbot Kiosk
+# Uzum Onboarding Platform
 
-AI-powered interactive chatbot kiosk for **Ajou University in Tashkent (AUT)** with face recognition, voice interaction, and campus information services.
+Interactive chatbot kiosk for **Uzum** IT employee onboarding with voice interaction, animated mascot, and admin panel.
 
-**Author:** Akhmedov Beknur | ECE Department | Ajou University in Tashkent
+**Author:** Akhmedov Beknur
 
 ---
 
 ## Quick Start
 
 ```bash
-git clone https://github.com/beknurakhmed/ai-chatbot.git
-cd ai-chatbot
+git clone <repo-url>
+cd uzum
 ./start.sh        # Linux/macOS
 # or
 start.bat         # Windows
 ```
 
-That's it. The script creates config files, builds Docker images, and starts all services.
+The script creates config files, builds Docker images, and starts all services.
 
 **Services after startup:**
 | Service | URL |
@@ -26,63 +26,47 @@ That's it. The script creates config files, builds Docker images, and starts all
 | Backend API | http://localhost:8000 |
 | Ollama LLM | http://localhost:11434 |
 
-**Admin login token:** `chito-admin-secret` (change in `.env`)
+**Admin login token:** set in `.env` (`ADMIN_TOKEN`)
 
 ---
 
 ## Features
 
-### AI Chat
-- Local LLM via Ollama (qwen2.5:7b default) or Claude API
+### Chat
+- Local LLM via Ollama (qwen2.5:7b default), with optional Claude API fallback
 - Knowledge base Q&A from database
 - Intent detection with configurable keywords
-- Mood system with animated mascot (Chito)
-- Multi-language: Uzbek, Russian, English, Korean
+- Mood system with animated mascot (Uzumchi)
+- Multi-language: Uzbek, Russian, English
 
-### Face Recognition
-- Real-time face detection via InsightFace (512-dim embeddings)
-- User registration & recognition with pgvector similarity search
-- Age, gender, expression analysis
-- Celebrity lookalike matching
+### Voice
+- TTS: Edge TTS (uz/ru/en)
+- Auto-speak responses
 
-### Voice Interaction
-- STT: Faster Whisper (local, GPU/CPU auto-detect)
-- TTS: Silero (uz/ru/en) + Edge TTS fallback (kr)
-- Auto-speak AI responses
-
-### Campus Services
-- Class timetable lookup (synced from aut.edupage.org)
-- Free classroom finder (by day/time/period, grouped by block)
-- Campus map with building legend
-- Staff directory with photos
-- University news feed
-- Room/block management
-
-### Kiosk Mode
-- Auto-sleep after idle timeout
-- Wake on face detection
-- Configurable via environment variables
+### Onboarding
+- Structured checklist (day 1, week 1, week 2, month 1)
+- Employee progress tracking
+- Pulse surveys for well-being monitoring
 
 ### Admin Panel
 - Dashboard with real-time stats
-- CRUD for: Knowledge Base, Keywords, News, Staff, Timetable, Buildings, Rooms
-- Data sync from external sources (ajou.uz, edupage.org)
+- CRUD for: Knowledge Base, Keywords, Onboarding Tasks, Departments
+- Interaction logs and analytics
 - Dark/Light mode
-- Toast notifications
 
 ---
 
 ## Architecture
 
 ```
-ai-chatbot/
-├── backend/          # FastAPI + Python AI services
+uzum/
+├── backend/          # FastAPI + Python services
 │   ├── app/
 │   │   ├── main.py           # App entry, lifespan
-│   │   ├── database.py       # Async SQLAlchemy + pgvector
+│   │   ├── database.py       # Async SQLAlchemy
 │   │   ├── models/           # Pydantic schemas + DB models
 │   │   ├── routers/          # API endpoints
-│   │   └── services/         # AI, TTS, STT, face, timetable
+│   │   └── services/         # Chat, TTS, knowledge, seeding
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/         # Next.js 16 kiosk interface
@@ -90,7 +74,7 @@ ai-chatbot/
 │   │   ├── app/              # Pages
 │   │   ├── components/       # UI components
 │   │   ├── hooks/            # Custom hooks
-│   │   ├── i18n/             # Translations (uz/ru/en/kr)
+│   │   ├── i18n/             # Translations (uz/ru/en)
 │   │   └── lib/              # API client, store
 │   └── Dockerfile
 ├── admin/            # Next.js 14 admin panel
@@ -110,12 +94,10 @@ ai-chatbot/
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | FastAPI, SQLAlchemy 2.0 (async), Python 3.11+ |
-| Database | PostgreSQL 16 + pgvector |
-| LLM | Ollama (qwen2.5) / Claude API |
-| Face AI | InsightFace + pgvector similarity |
-| STT | Faster Whisper |
-| TTS | Silero TTS + Edge TTS |
+| Backend | FastAPI, SQLAlchemy 2.0 (async), Python 3.12 |
+| Database | PostgreSQL 16 |
+| LLM | Ollama (qwen2.5) |
+| TTS | Edge TTS |
 | Frontend | Next.js 16, React 19, Tailwind CSS 4, Zustand |
 | Admin | Next.js 14, React 18, Tailwind CSS 3, Sonner |
 | Infra | Docker Compose, NVIDIA GPU support |
@@ -128,39 +110,34 @@ All config is via `.env.example` files. On first `start.sh`, they're auto-copied
 
 ### Root `.env`
 ```bash
-BACKEND_PORT=8000          # Backend API port
-FRONTEND_PORT=3000         # Kiosk frontend port
-ADMIN_PORT=3001            # Admin panel port
-POSTGRES_PORT=5432         # PostgreSQL port
-OLLAMA_PORT=11434          # Ollama LLM port
-POSTGRES_USER=chito        # DB username
-POSTGRES_PASSWORD=chito    # DB password
-POSTGRES_DB=chito          # DB name
-ADMIN_TOKEN=chito-admin-secret  # Admin auth token
-OLLAMA_MODEL=qwen2.5:7b   # LLM model
+BACKEND_PORT=8000
+FRONTEND_PORT=3000
+ADMIN_PORT=3001
+POSTGRES_PORT=5432
+OLLAMA_PORT=11434
+POSTGRES_USER=uzum
+POSTGRES_PASSWORD=change-me-in-production
+POSTGRES_DB=uzum
+ADMIN_TOKEN=change-me-in-production
+OLLAMA_MODEL=qwen2.5:7b
 ```
 
 ### Backend `backend/.env`
 ```bash
-OLLAMA_MODEL=qwen2.5:7b           # LLM model name
-OLLAMA_HOST=http://ollama:11434    # Ollama host (docker internal)
-# ANTHROPIC_API_KEY=sk-ant-...    # Optional: Claude API
-WHISPER_DEVICE=auto                # STT device: auto/cpu/cuda
-WHISPER_MODEL=base                 # STT model size
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_HOST=http://ollama:11434
+# ANTHROPIC_API_KEY=sk-ant-...    # Optional: enables Claude
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 ### Frontend `frontend/.env.local`
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
-NEXT_PUBLIC_LANGUAGES=uz,ru,en,kr         # Enabled languages
-NEXT_PUBLIC_KIOSK_SLEEP_MODE_ENABLED=false
-NEXT_PUBLIC_KIOSK_IDLE_TIMEOUT=10000      # ms before sleep
-NEXT_PUBLIC_KIOSK_WAKE_THRESHOLD=3        # face detections to wake
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ### Admin `admin/.env.local`
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
@@ -172,17 +149,12 @@ NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
 |--------|------|-------------|
 | GET | `/health` | Health check |
 | POST | `/api/chat` | Send message to chatbot |
-| GET | `/api/buildings` | Campus buildings for map |
-| GET | `/api/timetable` | Get group timetable |
-| GET | `/api/timetable/classes` | List all groups |
-| GET | `/api/timetable/teachers` | List all teachers |
-| GET | `/api/timetable/subjects` | List all subjects |
-| GET | `/api/timetable/free-rooms` | Find free classrooms |
 | GET | `/api/tts` | Text-to-speech |
-| POST | `/api/stt` | Speech-to-text |
-| GET | `/api/face/list` | List registered faces |
-| POST | `/api/face/save` | Register face |
-| WS | `/ws/face` | Real-time face analysis |
+| GET | `/api/onboarding/tasks` | List onboarding tasks |
+| GET | `/api/onboarding/progress/{name}` | Employee progress |
+| POST | `/api/onboarding/complete` | Mark task done |
+| POST | `/api/survey` | Submit pulse survey |
+| GET | `/api/survey/{name}` | Survey history |
 
 ### Admin (Bearer token required)
 | Method | Path | Description |
@@ -190,16 +162,10 @@ NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
 | GET | `/admin/stats` | Dashboard statistics |
 | GET/POST/PUT/DELETE | `/admin/knowledge[/{id}]` | Knowledge base CRUD |
 | POST | `/admin/knowledge/refresh-cache` | Reload knowledge cache |
+| POST | `/admin/knowledge/reseed` | Reseed from defaults |
 | GET/POST/PUT/DELETE | `/admin/keywords[/{id}]` | Keywords CRUD |
-| GET/POST/PUT/DELETE | `/admin/news[/{id}]` | News CRUD |
-| POST | `/admin/news/refresh` | Fetch from ajou.uz |
-| GET/POST/PUT/DELETE | `/admin/staff[/{id}]` | Staff CRUD |
-| POST | `/admin/staff/refresh` | Parse from ajou.uz |
-| GET/POST/PUT/DELETE | `/admin/timetable[/{id}]` | Timetable CRUD |
-| POST | `/admin/timetable/refresh` | Sync from edupage.org |
-| GET/POST/PUT/DELETE | `/admin/buildings[/{id}]` | Buildings CRUD |
-| GET/POST/PUT/DELETE | `/admin/rooms[/{id}]` | Rooms CRUD |
-| POST | `/admin/rooms/sync` | Extract rooms from timetable |
+| GET/POST/PUT/DELETE | `/admin/onboarding-tasks[/{id}]` | Onboarding tasks CRUD |
+| GET/POST/PUT/DELETE | `/admin/departments[/{id}]` | Departments CRUD |
 | GET | `/admin/logs` | Interaction logs |
 
 ---
@@ -210,14 +176,11 @@ NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
 |-------|-----------|
 | `knowledge_entries` | category, title, content, language, is_active |
 | `keywords` | keyword, intent, language, is_active |
-| `timetable_entries` | group, day, period, time_str, subject, teacher, room |
-| `staff_members` | name, position, photo, category |
-| `rooms` | name, block, floor, capacity |
-| `buildings` | num, name, description, color |
-| `news_items` | title, content, url, image_url, published_at |
-| `known_faces` | name, embedding (vector 512), age, gender |
-| `celebrity_faces` | name, embedding (vector 512) |
-| `interaction_logs` | user_name, message, reply, locale, mood |
+| `onboarding_tasks` | title, description, category, order_num |
+| `departments` | name, description, head_name |
+| `employee_onboarding` | employee_name, task_id, is_completed |
+| `pulse_surveys` | employee_name, mood_score, comment, category |
+| `interaction_logs` | employee_name, message, reply, locale, mood |
 
 ---
 
@@ -225,13 +188,13 @@ NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
 
 | Service | Image | Port | GPU |
 |---------|-------|------|-----|
-| postgres | pgvector/pgvector:pg16 | 5432 | No |
+| postgres | postgres:16 | 5432 | No |
 | ollama | ollama/ollama:latest | 11434 | Yes |
-| backend | Custom (PyTorch + CUDA) | 8000 | Yes |
+| backend | Custom (Python 3.12) | 8000 | No |
 | frontend | Custom (Node 22 Alpine) | 3000 | No |
 | admin | Custom (Node 22 Alpine) | 3001 | No |
 
-**Persistent volumes:** postgres-data, ollama-models, insightface-models
+**Persistent volumes:** postgres-data, ollama-models
 
 ---
 
@@ -239,12 +202,12 @@ NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend URL
 
 1. Clone and configure:
 ```bash
-git clone https://github.com/beknurakhmed/ai-chatbot.git
-cd ai-chatbot
+git clone <repo-url>
+cd uzum
 cp .env.example .env
 ```
 
-2. Edit `.env` with production settings (ports, passwords, model).
+2. Edit `.env` with production settings — **change all default passwords and tokens**.
 
 3. Set backend URL for frontend/admin:
 ```bash
@@ -258,12 +221,7 @@ docker compose build
 docker compose up -d
 ```
 
-5. Initialize data via admin panel:
-   - Login at http://localhost:3001 with admin token
-   - Timetable > "Refresh from edupage"
-   - Staff > "Refresh from ajou.uz"
-   - News > "Refresh"
-   - Rooms > "Sync from timetable"
+5. Initialize data via admin panel at http://localhost:3001
 
 ---
 
@@ -299,19 +257,15 @@ pm2 start ecosystem.config.js
 ## Requirements
 
 - **Docker** + Docker Compose
-- **NVIDIA GPU** with CUDA drivers (for LLM + face recognition + STT)
+- **NVIDIA GPU** with CUDA drivers (for LLM inference via Ollama)
   - Minimum 6GB VRAM (use qwen2.5:3b)
   - Recommended 8GB+ VRAM (qwen2.5:7b)
-- **Internet** for first run (downloads models ~12GB total)
+- **Internet** for first run (downloads models)
 
 ---
 
 ## License
 
-This project was developed as a graduation project at Ajou University in Tashkent.
+This project was developed for Uzum hakaton
 
 **Author:** Akhmedov Beknur
-**Department:** Electrical & Computer Engineering (ECE)
-**GitHub:** https://github.com/beknurakhmed
-**LinkedIn:** https://www.linkedin.com/in/beknur-akhmedov-6716292b4/
-**Website:** https://www.beknurdev.uz/

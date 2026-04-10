@@ -1,23 +1,16 @@
 {
-  "welcome": "Salom! Men Chito — AUT yordamchisiman!",
-  "welcomeSub": "Menga savol bering yoki quyidagi tugmalardan birini tanlang",
+  "welcome": "Salom! Men Uzumchi — Uzum-ga moslashish bo'yicha yordamchingiz!",
+  "welcomeSub": "Savol bering yoki quyidagi tugmalardan birini tanlang",
   "inputPlaceholder": "Savolingizni yozing...",
   "quickActions": {
-    "timetable": "Dars jadvali",
-    "map": "Kampus xaritasi",
-    "news": "Yangiliklar",
-    "staff": "Xodimlar",
-    "freeRooms": "Bo'sh xonalar"
+    "onboarding": "Moslashish rejasi",
+    "tools": "Asboblar",
+    "team": "Jamoa",
+    "benefits": "Imtiyozlar",
+    "help": "Yordam"
   },
   "chat": {
-    "thinking": "Chito o'ylayapti...",
-    "error": "Kechirasiz, xatolik yuz berdi. Qaytadan urinib ko'ring.",
-    "greeting": "Salom, {name}! Qalaysiz?"
-  },
-  "face": {
-    "recognized": "Salom, {name}! Bugun {count} ta daringiz bor.",
-    "unknown": "Salom! Men sizni hali tanimayman. Ro'yxatdan o'tmoqchimisiz?",
-    "register": "Ro'yxatdan o'tish"
-  },
-  "language": "Til"
+    "thinking": "Uzumchi o'ylayapti...",
+    "error": "Kechirasiz, xatolik yuz berdi. Qayta urinib ko'ring."
+  }
 }

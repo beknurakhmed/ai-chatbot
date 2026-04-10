@@ -9,21 +9,21 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "qwen2.5:7b";
 module.exports = {
   apps: [
     {
-      name: "aut-frontend",
+      name: "uzum-frontend",
       cwd: path.join(ROOT, "frontend"),
       script: "node_modules/next/dist/bin/next",
       args: `dev -p ${FRONTEND_PORT}`,
       interpreter: "node",
     },
     {
-      name: "aut-admin",
+      name: "uzum-admin",
       cwd: path.join(ROOT, "admin"),
       script: "node_modules/next/dist/bin/next",
       args: `dev -p ${ADMIN_PORT}`,
       interpreter: "node",
     },
     {
-      name: "aut-backend",
+      name: "uzum-backend",
       cwd: path.join(ROOT, "backend"),
       script: process.platform === "win32" ? "venv/Scripts/python.exe" : "venv/bin/python",
       args: `-m uvicorn app.main:app --reload --host 0.0.0.0 --port ${BACKEND_PORT}`,

@@ -68,7 +68,7 @@ export default function LogsPage() {
               {logs.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{log.id}</td>
-                  <td className="px-4 py-3 font-medium whitespace-nowrap">{log.user_name || "-"}</td>
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{log.employee_name || "-"}</td>
                   <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-xs">
                     <span title={log.message ?? ""}>{truncate(log.message ?? "", 60)}</span>
                   </td>

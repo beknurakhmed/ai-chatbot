@@ -1,25 +1,25 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg16
-    container_name: aut-postgres
+    image: postgres:16
+    container_name: uzum-postgres
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-chito}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chito}
-      POSTGRES_DB: ${POSTGRES_DB:-chito}
+      POSTGRES_USER: ${POSTGRES_USER:-uzum}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uzum}
+      POSTGRES_DB: ${POSTGRES_DB:-uzum}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-chito}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uzum}"]
       interval: 5s
       timeout: 3s
       retries: 5
 
   ollama:
     image: ollama/ollama:latest
-    container_name: aut-ollama
+    container_name: uzum-ollama
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
@@ -40,7 +40,7 @@ services:
 
   ollama-pull:
     image: ollama/ollama:latest
-    container_name: aut-ollama-pull
+    container_name: uzum-ollama-pull
     depends_on:
       ollama:
         condition: service_healthy
@@ -51,27 +51,16 @@ services:
 
   backend:
     build: ./backend
-    container_name: aut-backend
+    container_name: uzum-backend
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     environment:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:3b}
       - OLLAMA_HOST=http://ollama:11434
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-chito}:${POSTGRES_PASSWORD:-chito}@postgres:5432/${POSTGRES_DB:-chito}
-      - ADMIN_TOKEN=${ADMIN_TOKEN:-chito-admin-secret}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-uzum}:${POSTGRES_PASSWORD:-uzum}@postgres:5432/${POSTGRES_DB:-uzum}
+      - ADMIN_TOKEN=${ADMIN_TOKEN:-uzum-admin-secret}
     env_file:
       - ./backend/.env
-    volumes:
-      - ./backend/app/data:/app/app/data
-      - insightface-models:/root/.insightface
-      - torch-hub-cache:/root/.cache/torch
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,7 +75,7 @@ services:
 
   frontend:
     build: ./frontend
-    container_name: aut-frontend
+    container_name: uzum-frontend
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
@@ -96,7 +85,7 @@ services:
 
   admin:
     build: ./admin
-    container_name: aut-admin
+    container_name: uzum-admin
     ports:
       - "${ADMIN_PORT:-3001}:3001"
     depends_on:
@@ -107,5 +96,3 @@ services:
 volumes:
   postgres-data:
   ollama-models:
-  insightface-models:
-  torch-hub-cache:

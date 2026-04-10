@@ -1,195 +1,153 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { useAppStore } from "@/lib/store";
+import type { MascotMood } from "@/lib/store";
 
-// Breathing cycle: 1→2→3→4→3→2→1 with per-frame delays (ms)
-const SLEEP_SEQUENCE = [
-  { src: "/chito/sleep_1.png", delay: 2500 }, // resting, mouth closed — long pause
-  { src: "/chito/sleep_2.png", delay: 600 },  // mouth starts opening
-  { src: "/chito/sleep_3.png", delay: 500 },  // mouth open — exhale
-  { src: "/chito/sleep_4.png", delay: 700 },  // mouth wider — peak exhale
-  { src: "/chito/sleep_3.png", delay: 500 },  // closing back
-  { src: "/chito/sleep_2.png", delay: 600 },  // almost closed
-];
-// total cycle ~5.4s
-
-const THINKING_FRAMES = [
-  "/chito/thinking_1.png",
-  "/chito/thinking_2.png",
-  "/chito/thinking_3.png",
-  "/chito/thinking_4.png",
+const BLINK_FRAMES = [
+  "/mascot/idle.png",
+  "/mascot/blink_half.png",
+  "/mascot/blink_full.png",
+  "/mascot/blink_half.png",
+  "/mascot/idle.png",
 ];
 
-// Preload all images on mount
+const TALK_FRAMES = [
+  "/mascot/idle.png",
+  "/mascot/talk_a.png",
+  "/mascot/talk_b.png",
+  "/mascot/talk_a.png",
+];
+
+const ALL_SPRITES = [
+  "/mascot/idle.png",
+  "/mascot/blink_half.png",
+  "/mascot/blink_full.png",
+  "/mascot/talk_a.png",
+  "/mascot/talk_b.png",
+];
+
 function usePreloadImages() {
   const done = useRef(false);
   useEffect(() => {
     if (done.current) return;
     done.current = true;
-    const srcs = ["/chito/chito_idle.png", ...SLEEP_SEQUENCE.map((f) => f.src), ...THINKING_FRAMES,
-      "/chito/layers/eyes_closed.png", "/chito/layers/mouth_open_old.png", "/chito/layers/mouth_half_old.png"];
-    srcs.forEach((src) => {
+    ALL_SPRITES.forEach((src) => {
       const img = new window.Image();
       img.src = src;
     });
   }, []);
 }
 
-export default function Chito() {
+function useBlinkAnimation(enabled: boolean) {
+  const [frame, setFrame] = useState(0);
+  const [isBlinking, setIsBlinking] = useState(false);
+
+  useEffect(() => {
+    if (!enabled) { setFrame(0); setIsBlinking(false); return; }
+
+    const scheduleNextBlink = () => {
+      const delay = 2000 + Math.random() * 4000;
+      return setTimeout(() => setIsBlinking(true), delay);
+    };
+
+    let timer = scheduleNextBlink();
+    return () => clearTimeout(timer);
+  }, [enabled, isBlinking]);
+
+  useEffect(() => {
+    if (!isBlinking) return;
+    let i = 0;
+    setFrame(0);
+    const interval = setInterval(() => {
+      i++;
+      if (i >= BLINK_FRAMES.length) {
+        setIsBlinking(false);
+        setFrame(0);
+        clearInterval(interval);
+      } else {
+        setFrame(i);
+      }
+    }, 80);
+    return () => clearInterval(interval);
+  }, [isBlinking]);
+
+  return isBlinking ? BLINK_FRAMES[frame] : null;
+}
+
+function useTalkAnimation(enabled: boolean) {
+  const [frame, setFrame] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) { setFrame(0); return; }
+    const interval = setInterval(() => {
+      setFrame((f) => (f + 1) % TALK_FRAMES.length);
+    }, 150);
+    return () => clearInterval(interval);
+  }, [enabled]);
+
+  return enabled ? TALK_FRAMES[frame] : null;
+}
+
+export default function Uzumchi() {
   usePreloadImages();
 
   const mood = useAppStore((s) => s.mood);
   const isLoading = useAppStore((s) => s.isLoading);
-  const [blink, setBlink] = useState(false);
-  const [mouthState, setMouthState] = useState<"closed" | "half" | "open">("closed");
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [frameIndex, setFrameIndex] = useState(0);
 
-  // Blink every 1.5-3.5 seconds
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    function doBlink() {
-      timeout = setTimeout(() => {
-        setBlink(true);
-        setTimeout(() => setBlink(false), 150);
-        doBlink();
-      }, 1500 + Math.random() * 2000);
-    }
-    doBlink();
-    return () => clearTimeout(timeout);
-  }, []);
+  const isSpeaking = useAppStore((s) => s.isSpeaking);
+  const isTalking = isSpeaking || mood === "talking";
+  const isThinking = isLoading;
 
-  // Frame animation for sleeping and thinking
-  const frameRef = useRef(0);
+  const talkSprite = useTalkAnimation(isTalking && !isThinking);
+  const blinkSprite = useBlinkAnimation(!isTalking && !isThinking);
 
-  useEffect(() => {
-    if (mood !== "resting" && mood !== "thinking") {
-      frameRef.current = 0;
-      setFrameIndex(0);
-      return;
-    }
-
-    let timerId: ReturnType<typeof setTimeout>;
-    let stopped = false;
-
-    function tick() {
-      if (stopped) return;
-      const seq = mood === "resting" ? SLEEP_SEQUENCE : THINKING_FRAMES;
-      const next = (frameRef.current + 1) % seq.length;
-      frameRef.current = next;
-      setFrameIndex(next);
-
-      const delay = mood === "resting"
-        ? SLEEP_SEQUENCE[next].delay
-        : 1200;
-      timerId = setTimeout(tick, delay);
-    }
-
-    const firstDelay = mood === "resting" ? SLEEP_SEQUENCE[0].delay : 1200;
-    timerId = setTimeout(tick, firstDelay);
-
-    return () => {
-      stopped = true;
-      clearTimeout(timerId);
-    };
-  }, [mood]);
-
-  // Lip-sync: watch for audio elements playing
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    const mouthCycle: Array<"closed" | "half" | "open"> = ["closed", "open", "half", "open", "closed", "half"];
-    let mouthIdx = 0;
-
-    function checkAudio() {
-      const audios = document.querySelectorAll("audio");
-      let anyPlaying = false;
-      audios.forEach((a) => {
-        if (!a.paused && !a.ended) anyPlaying = true;
-      });
-
-      setIsSpeaking(anyPlaying);
-
-      if (anyPlaying && !interval) {
-        interval = setInterval(() => {
-          mouthIdx = (mouthIdx + 1) % mouthCycle.length;
-          setMouthState(mouthCycle[mouthIdx]);
-        }, 120);
-      } else if (!anyPlaying && interval) {
-        clearInterval(interval);
-        interval = null;
-        setMouthState("closed");
-      }
-    }
-
-    const pollId = setInterval(checkAudio, 100);
-    return () => {
-      clearInterval(pollId);
-      if (interval) clearInterval(interval);
-    };
-  }, []);
-
-  // Determine current sprite
   let sprite: string;
-  if (mood === "resting") {
-    sprite = SLEEP_SEQUENCE[frameIndex]?.src || SLEEP_SEQUENCE[0].src;
-  } else if (mood === "thinking" || isLoading) {
-    sprite = THINKING_FRAMES[frameIndex] || THINKING_FRAMES[0];
+  if (isThinking) {
+    sprite = "/mascot/idle.png";
+  } else if (talkSprite) {
+    sprite = talkSprite;
+  } else if (blinkSprite) {
+    sprite = blinkSprite;
   } else {
-    sprite = "/chito/chito_idle.png";
+    sprite = "/mascot/idle.png";
   }
 
-  const showOverlays = sprite === "/chito/chito_idle.png";
+  const floatAnimation = { y: [0, -6, 0] };
+  const floatTransition = { duration: 3, repeat: Infinity, ease: "easeInOut" as const };
 
   return (
-    <div className="relative flex items-center justify-center w-32 h-32 sm:w-48 sm:h-48 md:w-64 md:h-64 lg:w-80 lg:h-80">
+    <div className="relative flex items-center justify-center w-48 h-48 sm:w-64 sm:h-64 md:w-80 md:h-80 mt-8">
+      {/* Thinking dots above mascot */}
+      {isThinking && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {[0, 1, 2].map((i) => (
+            <motion.div
+              key={i}
+              className="w-3 h-3 md:w-4 md:h-4 rounded-full bg-purple-400"
+              animate={{ y: [0, -8, 0], opacity: [0.4, 1, 0.4] }}
+              transition={{
+                duration: 1,
+                repeat: Infinity,
+                ease: "easeInOut",
+                delay: i * 0.2,
+              }}
+            />
+          ))}
+        </div>
+      )}
       <motion.div
-        animate={{ y: [0, -6, 0] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        animate={floatAnimation}
+        transition={floatTransition}
         className="relative w-full h-full"
       >
-        {/* Single img tag — just swap src, no flicker */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={sprite}
-          alt="Chito"
+          alt="Uzumchi"
           className="absolute inset-0 w-full h-full object-contain drop-shadow-xl"
         />
-
-        {/* Eyes closed overlay */}
-        {showOverlays && blink && !isSpeaking && (
-          <Image
-            src="/chito/layers/eyes_closed.png"
-            alt=""
-            fill
-            className="object-contain pointer-events-none"
-            sizes="(max-width: 768px) 192px, (max-width: 1024px) 256px, 320px"
-          />
-        )}
-
-        {/* Mouth open overlay */}
-        {showOverlays && isSpeaking && mouthState === "open" && (
-          <Image
-            src="/chito/layers/mouth_open_old.png"
-            alt=""
-            fill
-            className="object-contain pointer-events-none"
-            sizes="(max-width: 768px) 192px, (max-width: 1024px) 256px, 320px"
-          />
-        )}
-
-        {/* Mouth half overlay */}
-        {showOverlays && isSpeaking && mouthState === "half" && (
-          <Image
-            src="/chito/layers/mouth_half_old.png"
-            alt=""
-            fill
-            className="object-contain pointer-events-none"
-            sizes="(max-width: 768px) 192px, (max-width: 1024px) 256px, 320px"
-          />
-        )}
       </motion.div>
     </div>
   );

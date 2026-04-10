@@ -1,11 +1,10 @@
 import uz from "./uz.json";
 import ru from "./ru.json";
 import en from "./en.json";
-import kr from "./kr.json";
 
-export const locales = { uz, ru, en, kr } as const;
+export const locales = { uz, ru, en } as const;
 export type Locale = keyof typeof locales;
-export const defaultLocale: Locale = "en";
+export const defaultLocale: Locale = "ru";
 
 export function t(locale: Locale, key: string, params?: Record<string, string | number>): string {
   const keys = key.split(".");

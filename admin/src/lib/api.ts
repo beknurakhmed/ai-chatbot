@@ -1,6 +1,5 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-// Token stored in localStorage
 export function getToken(): string {
   if (typeof window === "undefined") return "";
   return localStorage.getItem("admin_token") || "";
@@ -40,7 +39,8 @@ export async function apiFetch<T>(
   return res.json() as Promise<T>;
 }
 
-// --- Knowledge ---
+
+
 export interface KnowledgeEntry {
   id: number;
   category: string;
@@ -62,7 +62,8 @@ export const deleteKnowledge = (id: number) =>
 export const refreshKnowledgeCache = () =>
   apiFetch<{ status: string }>("/admin/knowledge/refresh-cache", { method: "POST" });
 
-// --- Keywords ---
+
+
 export interface Keyword {
   id: number;
   keyword: string;
@@ -80,115 +81,49 @@ export const updateKeyword = (id: number, data: Omit<Keyword, "id" | "created_at
 export const deleteKeyword = (id: number) =>
   apiFetch<void>(`/admin/keywords/${id}`, { method: "DELETE" });
 
-// --- News ---
-export interface NewsItem {
+
+
+export interface OnboardingTask {
   id: number;
-  external_id?: number;
   title: string;
-  content?: string;
-  url?: string;
-  image_url?: string;
-  published_at?: string;
+  description?: string;
+  category: string;
+  order_num: number;
   is_active: boolean;
   created_at?: string;
 }
 
-export const getNews = () => apiFetch<NewsItem[]>("/admin/news");
-export const createNews = (data: Omit<NewsItem, "id" | "created_at">) =>
-  apiFetch<NewsItem>("/admin/news", { method: "POST", body: JSON.stringify(data) });
-export const updateNews = (id: number, data: Omit<NewsItem, "id" | "created_at">) =>
-  apiFetch<NewsItem>(`/admin/news/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deleteNews = (id: number) =>
-  apiFetch<void>(`/admin/news/${id}`, { method: "DELETE" });
-export const refreshNews = () =>
-  apiFetch<{ added: number; fetched: number }>("/admin/news/refresh", { method: "POST" });
+export const getOnboardingTasks = () => apiFetch<OnboardingTask[]>("/admin/onboarding-tasks");
+export const createOnboardingTask = (data: Omit<OnboardingTask, "id" | "created_at">) =>
+  apiFetch<OnboardingTask>("/admin/onboarding-tasks", { method: "POST", body: JSON.stringify(data) });
+export const updateOnboardingTask = (id: number, data: Omit<OnboardingTask, "id" | "created_at">) =>
+  apiFetch<OnboardingTask>(`/admin/onboarding-tasks/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteOnboardingTask = (id: number) =>
+  apiFetch<void>(`/admin/onboarding-tasks/${id}`, { method: "DELETE" });
 
-// --- Staff ---
-export interface StaffMember {
+
+
+export interface Department {
   id: number;
-  name: string;
-  position?: string;
-  photo?: string;
-  category?: string;
-  is_active: boolean;
-}
-
-export const getStaff = () => apiFetch<StaffMember[]>("/admin/staff");
-export const createStaff = (data: Omit<StaffMember, "id">) =>
-  apiFetch<StaffMember>("/admin/staff", { method: "POST", body: JSON.stringify(data) });
-export const updateStaff = (id: number, data: Omit<StaffMember, "id">) =>
-  apiFetch<StaffMember>(`/admin/staff/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deleteStaff = (id: number) =>
-  apiFetch<void>(`/admin/staff/${id}`, { method: "DELETE" });
-export const refreshStaff = () =>
-  apiFetch<{ count: number; updated: string }>("/admin/staff/refresh", { method: "POST" });
-
-// --- Timetable ---
-export interface TimetableEntry {
-  id: number;
-  group: string;
-  day: string;
-  period: string;
-  time_str: string;
-  subject: string;
-  teacher?: string;
-  room?: string;
-  is_active: boolean;
-}
-
-export const getTimetable = () => apiFetch<TimetableEntry[]>("/admin/timetable");
-export const createTimetable = (data: Omit<TimetableEntry, "id">) =>
-  apiFetch<TimetableEntry>("/admin/timetable", { method: "POST", body: JSON.stringify(data) });
-export const updateTimetable = (id: number, data: Omit<TimetableEntry, "id">) =>
-  apiFetch<TimetableEntry>(`/admin/timetable/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deleteTimetable = (id: number) =>
-  apiFetch<void>(`/admin/timetable/${id}`, { method: "DELETE" });
-export const refreshTimetable = () =>
-  apiFetch<{ classes: number; entries_saved: number; updated: string }>("/admin/timetable/refresh", { method: "POST" });
-
-// --- Buildings ---
-export interface BuildingEntry {
-  id: number;
-  num: number;
   name: string;
   description?: string;
-  photo?: string;
-  color: string;
+  head_name?: string;
   is_active: boolean;
 }
 
-export const getBuildings = () => apiFetch<BuildingEntry[]>("/admin/buildings");
-export const createBuilding = (data: Omit<BuildingEntry, "id">) =>
-  apiFetch<BuildingEntry>("/admin/buildings", { method: "POST", body: JSON.stringify(data) });
-export const updateBuilding = (id: number, data: Omit<BuildingEntry, "id">) =>
-  apiFetch<BuildingEntry>(`/admin/buildings/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deleteBuilding = (id: number) =>
-  apiFetch<void>(`/admin/buildings/${id}`, { method: "DELETE" });
+export const getDepartments = () => apiFetch<Department[]>("/admin/departments");
+export const createDepartment = (data: Omit<Department, "id">) =>
+  apiFetch<Department>("/admin/departments", { method: "POST", body: JSON.stringify(data) });
+export const updateDepartment = (id: number, data: Omit<Department, "id">) =>
+  apiFetch<Department>(`/admin/departments/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteDepartment = (id: number) =>
+  apiFetch<void>(`/admin/departments/${id}`, { method: "DELETE" });
 
-// --- Rooms ---
-export interface RoomEntry {
-  id: number;
-  name: string;
-  block?: string;
-  floor?: number;
-  capacity?: number;
-  is_active: boolean;
-}
 
-export const getRooms = () => apiFetch<RoomEntry[]>("/admin/rooms");
-export const createRoom = (data: Omit<RoomEntry, "id">) =>
-  apiFetch<RoomEntry>("/admin/rooms", { method: "POST", body: JSON.stringify(data) });
-export const updateRoom = (id: number, data: Omit<RoomEntry, "id">) =>
-  apiFetch<RoomEntry>(`/admin/rooms/${id}`, { method: "PUT", body: JSON.stringify(data) });
-export const deleteRoom = (id: number) =>
-  apiFetch<void>(`/admin/rooms/${id}`, { method: "DELETE" });
-export const syncRooms = () =>
-  apiFetch<{ synced: number; total_timetable_rooms: number; existing: number }>("/admin/rooms/sync", { method: "POST" });
 
-// --- Logs ---
 export interface LogEntry {
   id: number;
-  user_name?: string;
+  employee_name?: string;
   message?: string;
   reply?: string;
   locale?: string;

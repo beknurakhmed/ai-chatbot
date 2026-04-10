@@ -9,13 +9,13 @@ import {
   deleteKnowledge,
 } from "@/lib/api";
 
-const LANGUAGES = ["en", "ru", "uz", "kr"];
+const LANGUAGES = ["ru", "uz", "en"];
 
 const emptyForm = (): Omit<KnowledgeEntry, "id"> => ({
   category: "",
   title: "",
   content: "",
-  language: "en",
+  language: "ru",
   is_active: true,
 });
 

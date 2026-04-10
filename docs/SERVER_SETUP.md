@@ -1,4 +1,4 @@
-# Server Setup Guide — Linux + RTX 3060
+# Server Setup Guide
 
 ## Hardware Requirements
 
@@ -10,7 +10,7 @@
 | Storage | 50GB SSD | 100GB+ SSD |
 | Network | 100 Mbps | 1 Gbps |
 
-> RTX 3060 12GB VRAM — ideal for this project. Runs qwen2.5:7b (5.5GB) + InsightFace + Whisper simultaneously.
+> RTX 3060 12GB VRAM is sufficient for running qwen2.5:7b (~5.5GB).
 
 ---
 
@@ -152,11 +152,11 @@ Subsequent starts: **~30 seconds**.
 docker compose ps
 
 # Expected:
-# aut-postgres    running   0.0.0.0:5432->5432
-# aut-ollama      running   0.0.0.0:11434->11434
-# aut-backend     running   0.0.0.0:8000->8000
-# aut-frontend    running   0.0.0.0:3000->3000
-# aut-admin       running   0.0.0.0:3001->3001
+# uzum-postgres    running   0.0.0.0:5432->5432
+# uzum-ollama      running   0.0.0.0:11434->11434
+# uzum-backend     running   0.0.0.0:8000->8000
+# uzum-frontend    running   0.0.0.0:3000->3000
+# uzum-admin       running   0.0.0.0:3001->3001
 
 # Check health
 curl http://localhost:8000/health
@@ -173,24 +173,19 @@ nvidia-smi
 
 Open admin panel: `http://<server-ip>:3001`
 
-Login token: `chito-admin-secret` (or what you set in `.env`)
+Login token: set in `.env` as `ADMIN_TOKEN`
 
-1. **Timetable** → "Refresh from edupage"
-2. **Staff** → "Refresh from ajou.uz"
-3. **News** → "Refresh"
-4. **Rooms** → "Sync from timetable"
+1. Check **Dashboard** for system stats
+2. Add knowledge base entries
+3. Configure keywords and onboarding tasks
 
 ---
 
-## VRAM Usage (RTX 3060 12GB)
+## VRAM Usage
 
 | Service | VRAM | Notes |
 |---------|------|-------|
 | Ollama qwen2.5:7b | ~5.5 GB | Main LLM |
-| InsightFace | ~0.5 GB | Face recognition |
-| Faster Whisper (base) | ~0.3 GB | Speech-to-text |
-| Silero TTS | ~0.2 GB | Text-to-speech |
-| **Total** | **~6.5 GB** | Fits in 12GB |
 
 > If VRAM is tight, switch to `qwen2.5:3b` (~2.5GB) in `.env`:
 > ```
@@ -266,7 +261,7 @@ sudo certbot --nginx -d kiosk.yourdomain.uz -d api.yourdomain.uz
 
 ### Change passwords
 ```bash
-# Edit .env before first run:
+# IMPORTANT: Edit .env before first run:
 nano .env
 # POSTGRES_PASSWORD=strong-random-password
 # ADMIN_TOKEN=strong-random-token
@@ -301,7 +296,7 @@ docker system prune -f
 |---------|-----|
 | `nvidia-smi` not found | Reinstall drivers: `sudo ubuntu-drivers autoinstall && reboot` |
 | Docker GPU error | Reinstall nvidia-container-toolkit, restart docker |
-| Backend OOM killed | Reduce model: `OLLAMA_MODEL=qwen2.5:3b` |
+| Ollama OOM killed | Reduce model: `OLLAMA_MODEL=qwen2.5:3b` |
 | Port already in use | Change in `.env`: `BACKEND_PORT=9000` |
 | Slow first start | Normal — downloading ~12GB of models |
 | Permission denied on start.sh | `chmod +x start.sh` |

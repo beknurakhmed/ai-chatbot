@@ -7,10 +7,9 @@ router = APIRouter(prefix="/api/tts", tags=["tts"])
 
 @router.get("")
 async def tts_endpoint(
-    text: str = Query(...),
-    locale: str = Query(default="uz"),
+    text: str = Query(..., min_length=1, max_length=2000),
+    locale: str = Query(default="uz", pattern=r"^(ru|uz|en)$"),
 ):
-    """Convert text to speech audio."""
     audio_bytes, media_type = await synthesize(text, locale)
     return Response(
         content=audio_bytes,

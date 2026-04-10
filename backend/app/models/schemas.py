@@ -1,66 +1,48 @@
-from pydantic import BaseModel
+from datetime import date
+from typing import Literal
+from pydantic import BaseModel, Field
 
 
 class MessageItem(BaseModel):
-    role: str  # "user" or "assistant"
-    content: str
-
-
-class FaceAttributesInput(BaseModel):
-    age: int | None = None
-    gender: str | None = None
-    expression: str | None = None
-    expressionScore: float = 0
-    lookalike: str | None = None
+    role: Literal["user", "assistant"]
+    content: str = Field(..., max_length=10000)
 
 
 class ChatRequest(BaseModel):
-    message: str
-    locale: str = "uz"
-    history: list[MessageItem] = []
-    user_name: str | None = None
-    face_attributes: FaceAttributesInput | None = None
-
-
-class TimetableLesson(BaseModel):
-    day: str
-    period: str
-    time: str
-    subject: str
-    teacher: str
-    room: str
-
-
-class TimetableData(BaseModel):
-    group: str
-    lessons: list[TimetableLesson]
-
-
-class StaffMember(BaseModel):
-    name: str
-    position: str
-    photo: str = ""
-
-
-class NewsItem(BaseModel):
-    title: str
-    url: str = ""
-    date: str = ""
+    message: str = Field(..., min_length=1, max_length=5000)
+    locale: str = Field(default="ru", pattern=r"^(ru|uz|en)$")
+    history: list[MessageItem] = Field(default=[], max_length=50)
+    employee_name: str | None = Field(default=None, max_length=255)
 
 
 class ChatResponse(BaseModel):
     reply: str
     mood: str = "explaining"
-    timetable: TimetableData | None = None
-    staff: list[StaffMember] | None = None
-    news: list[NewsItem] | None = None
-    map: bool = False
+    onboarding: list[dict] | None = None
 
 
-class FaceRecognizeRequest(BaseModel):
-    image: str  # base64 encoded image
+class OnboardingTaskOut(BaseModel):
+    id: int
+    title: str
+    description: str | None
+    category: str
+    order_num: int
+    is_completed: bool = False
+
+    class Config:
+        from_attributes = True
 
 
-class FaceRecognizeResponse(BaseModel):
-    name: str | None = None
-    confidence: float = 0.0
+class PulseSurveyIn(BaseModel):
+    employee_name: str = Field(..., min_length=1, max_length=255)
+    mood_score: int = Field(..., ge=1, le=5)
+    comment: str | None = Field(default=None, max_length=2000)
+    category: str = Field(default="general", max_length=100)
+    survey_date: date
+
+
+class PulseSurveyOut(PulseSurveyIn):
+    id: int
+
+    class Config:
+        from_attributes = True

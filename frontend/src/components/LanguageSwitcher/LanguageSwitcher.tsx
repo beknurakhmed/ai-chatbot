@@ -7,10 +7,9 @@ const ALL_LANGUAGES: { code: Locale; label: string }[] = [
   { code: "uz", label: "O'zbek" },
   { code: "ru", label: "Русский" },
   { code: "en", label: "English" },
-  { code: "kr", label: "한국어" },
 ];
 
-const enabledCodes = (process.env.NEXT_PUBLIC_LANGUAGES || "uz,ru,en,kr").split(",").map((s) => s.trim());
+const enabledCodes = (process.env.NEXT_PUBLIC_LANGUAGES || "uz,ru,en").split(",").map((s) => s.trim());
 const languages = ALL_LANGUAGES.filter((l) => enabledCodes.includes(l.code));
 
 export default function LanguageSwitcher() {
@@ -18,19 +17,21 @@ export default function LanguageSwitcher() {
   const setLocale = useAppStore((s) => s.setLocale);
 
   return (
-    <div className="flex bg-gray-100 rounded-2xl p-1 gap-0.5">
+    <div className="flex bg-gray-100 rounded-2xl p-0.5 gap-0.5">
       {languages.map((lang) => (
         <button
           key={lang.code}
           onClick={() => setLocale(lang.code)}
-          className={`px-3 py-1.5 rounded-xl text-sm font-semibold transition-all
+          className={`px-2 py-1.5 md:px-3 md:py-1.5 rounded-xl text-xs md:text-sm font-semibold
+            transition-colors duration-200 cursor-pointer focus:outline-none
             ${
               locale === lang.code
-                ? "bg-blue-500 text-white shadow-md"
+                ? "bg-purple-600 text-white shadow-sm"
                 : "text-gray-500 hover:text-gray-800 hover:bg-white/60"
             }`}
         >
-          {lang.label}
+          <span className="hidden sm:inline">{lang.label}</span>
+          <span className="sm:hidden">{lang.code.toUpperCase()}</span>
         </button>
       ))}
     </div>

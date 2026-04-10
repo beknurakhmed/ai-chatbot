@@ -1,15 +1,8 @@
-"""Knowledge DB service — loads knowledge entries and keywords from database.
-
-Maintains an in-memory cache, refreshed on startup and via admin /refresh endpoint.
-"""
-
 import asyncio
 import time
 from sqlalchemy import select
 from ..database import async_session
 from ..models.db_models import KnowledgeEntry, Keyword
-
-# ── In-memory cache ──────────────────────────────────────────────────────────
 
 _knowledge_text: str = ""
 _keywords_by_intent: dict[str, list[str]] = {}
@@ -19,7 +12,6 @@ _CACHE_TTL: float = 300.0  # 5 minutes
 
 
 def _cache_expired() -> bool:
-    """Check if the cache TTL has been exceeded."""
     return (time.monotonic() - _last_loaded) > _CACHE_TTL
 
 
@@ -63,12 +55,10 @@ async def _load_from_db() -> None:
 
 
 async def refresh() -> None:
-    """Reload knowledge and keywords from DB. Call after admin changes."""
     await _load_from_db()
 
 
 async def get_knowledge_text() -> str:
-    """Return combined knowledge text from DB only."""
     if not _loaded or _cache_expired():
         await _load_from_db()
 
@@ -76,14 +66,12 @@ async def get_knowledge_text() -> str:
 
 
 async def get_keywords_by_intent(intent: str) -> list[str]:
-    """Return keywords for a specific intent from DB."""
     if not _loaded or _cache_expired():
         await _load_from_db()
     return _keywords_by_intent.get(intent, [])
 
 
 async def get_all_keywords() -> dict[str, list[str]]:
-    """Return all keywords grouped by intent."""
     if not _loaded:
         await _load_from_db()
     return dict(_keywords_by_intent)
